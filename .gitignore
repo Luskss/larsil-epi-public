@@ -1,0 +1,18 @@
+# Credenciais — NUNCA commitar
+.env
+
+# Diagnóstico / temporários
+inspect-*.php
+test-*.php
+
+# Logs
+*.log
+
+# Composer
+vendor/
+
+# Editores
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/

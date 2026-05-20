@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solicitar EPI</title>
+  <meta name="theme-color" content="#1e4620" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Solicitar EPI" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" sizes="48x48" href="img/favicon.png?v=2" />
+  <link rel="shortcut icon" href="img/favicon.png?v=2" />
+  <link rel="apple-touch-icon" sizes="192x192" href="img/iconandroid.png" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+
+      <!-- Cabeçalho verde -->
+      <div class="card-header">
+        <div class="header-icon"><img src="img/branca.png" alt="Logo" style="height:40px;width:40px;object-fit:contain;border-radius:8px" /></div>
+        <div>
+          <div class="header-title">Solicitar EPI</div>
+        </div>
+        <div class="header-actions">
+          <button class="btn-logout" onclick="logout()">Sair</button>
+        </div>
+      </div>
+
+      <!-- Abas -->
+      <div class="tabs">
+        <button class="tab active" id="tab-nova" onclick="showTab('nova')">
+          + Nova
+        </button>
+        <button class="tab" id="tab-minhas" onclick="showTab('minhas')">
+          🕐 Minhas
+          <span class="tab-badge hidden" id="badge-pendentes"></span>
+        </button>
+      </div>
+
+      <!-- ── Aba: Nova solicitação ── -->
+      <div class="pane" id="pane-nova">
+
+        <div class="form-group">
+          <label for="nome-lider">Seu nome (líder)</label>
+          <input type="text" id="nome-lider" placeholder="Ex: João da Silva" autocomplete="name" />
+        </div>
+
+        <div class="form-group">
+          <label for="funcionario-id">Colaborador</label>
+          <select id="funcionario-id">
+            <option value="">Selecione o colaborador</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="prioridade">Prioridade</label>
+          <select id="prioridade">
+            <option value="baixa">Baixa</option>
+            <option value="normal" selected>Normal</option>
+            <option value="alta">Alta</option>
+            <option value="urgente">Urgente</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <div class="epis-header">
+            <label>EPIs solicitados</label>
+            <button class="btn-add" onclick="addItem()">+ Adicionar</button>
+          </div>
+          <div id="itens-container"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="observacoes">Observações</label>
+          <textarea id="observacoes" placeholder="Ex: turno noturno, frente de trabalho km 12…"></textarea>
+        </div>
+
+        <button class="btn-primary" id="btn-enviar" onclick="enviarSolicitacao()">
+          <span>✈</span> Enviar solicitação
+        </button>
+      </div>
+
+      <!-- ── Aba: Minhas solicitações ── -->
+      <div class="pane hidden" id="pane-minhas">
+        <div id="historico-container">
+          <div class="empty-state">
+            <div class="empty-icon">🕐</div>
+            <p>Carregando…</p>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /card -->
+  </div><!-- /container -->
+
+  <!-- Modal de sucesso -->
+  <div class="modal-overlay hidden" id="modal-sucesso">
+    <div class="modal-box">
+      <div class="success-circle">✓</div>
+      <h2>Solicitação enviada!</h2>
+      <p class="sub" id="modal-numero"></p>
+      <p class="desc">O almoxarifado foi notificado e vai despachar os EPIs.</p>
+      <div class="modal-actions">
+        <button class="btn-outline" onclick="closeModal('minhas')">Acompanhar</button>
+        <button class="btn-primary" onclick="closeModal('nova')">Nova</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ── Estado ───────────────────────────────────────────────────────────
+    let currentUser  = null;
+    let funcionarios = [];
+    let epiGroups    = [];
+    let itens        = [{ epi_id: '', quantidade: 1 }];
+
+    // ── Init ─────────────────────────────────────────────────────────────
+    async function init() {
+      const res  = await fetch('./check-auth.php');
+      const auth = await res.json();
+      if (!auth.authenticated) { window.location.href = 'login.html'; return; }
+      currentUser = { login: auth.login };
+      localStorage.setItem('app_lider_login', auth.login);
+      // pré-preenche o nome do líder com o login
+      const nomeCampo = document.getElementById('nome-lider');
+      if (!nomeCampo.value) nomeCampo.value = auth.login;
+
+      await carregarDados();
+      renderItens();
+      carregarHistorico();
+
+      // Verifica sessão PHP periodicamente (a cada 5 min)
+      setInterval(async () => {
+        const r = await fetch('./check-auth.php');
+        if (!r.ok) window.location.href = 'login.html';
+      }, 5 * 60 * 1000);
+    }
+
+    // ── Carregar dados base ──────────────────────────────────────────────
+    async function carregarDados() {
+      const [colabRes, episRes] = await Promise.all([
+        fetch('./get-colaboradores.php'),
+        fetch('./get-epis.php'),
+      ]);
+
+      if (!colabRes.ok) { window.location.href = 'login.html'; return; }
+      const colabs  = await colabRes.json();
+      const epiData = await episRes.json();
+
+      funcionarios = Array.isArray(colabs)  ? colabs  : [];
+      epiGroups    = Array.isArray(epiData) ? epiData : [];
+
+      const sel = document.getElementById('funcionario-id');
+      funcionarios.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.ID;
+        opt.textContent = c.NOME + (c.FUNCAO ? ` — ${c.FUNCAO}` : '');
+        sel.appendChild(opt);
+      });
+    }
+
+    // ── Gerenciar itens de EPI ───────────────────────────────────────────
+    function addItem() {
+      itens.push({ epi_id: '', quantidade: 1 });
+      renderItens();
+    }
+
+    function removeItem(idx) {
+      itens.splice(idx, 1);
+      renderItens();
+    }
+
+    function renderItens() {
+      const container = document.getElementById('itens-container');
+      container.innerHTML = '';
+
+      itens.forEach((item, idx) => {
+        const row = document.createElement('div');
+        row.className = 'epi-row';
+
+        // Select de EPI
+        const sel = document.createElement('select');
+        sel.innerHTML = '<option value="">EPI</option>' +
+          epiGroups.map(g =>
+            `<optgroup label="${g.NOME_GRUPO}">` +
+            g.epis.map(e =>
+              `<option value="${e.ID}" ${String(e.ID) === String(item.epi_id) ? 'selected' : ''}>` +
+              `${e.DESCRICAO}${e.CA ? ` (CA ${e.CA})` : ''}</option>`
+            ).join('') +
+            `</optgroup>`
+          ).join('');
+        sel.addEventListener('change', e => { itens[idx].epi_id = e.target.value; });
+
+        // Quantidade
+        const qty = document.createElement('input');
+        qty.type = 'number';
+        qty.min = 1;
+        qty.className = 'epi-qty';
+        qty.value = item.quantidade;
+        qty.addEventListener('input', e => { itens[idx].quantidade = parseInt(e.target.value) || 1; });
+
+        row.appendChild(sel);
+        row.appendChild(qty);
+
+        // Botão remover (só se tiver mais de 1 item)
+        if (itens.length > 1) {
+          const btn = document.createElement('button');
+          btn.className = 'btn-remove';
+          btn.innerHTML = '×';
+          btn.type = 'button';
+          btn.addEventListener('click', () => removeItem(idx));
+          row.appendChild(btn);
+        }
+
+        container.appendChild(row);
+      });
+    }
+
+    // ── Enviar solicitação ────────────────────────────────────────────────
+    async function enviarSolicitacao() {
+      const nomeLider     = document.getElementById('nome-lider').value.trim();
+      const colaboradorId = document.getElementById('funcionario-id').value;
+      const prioridade    = document.getElementById('prioridade').value;
+      const observacoes   = document.getElementById('observacoes').value.trim();
+
+      if (!nomeLider)     { showToast('Informe seu nome', true); return; }
+      if (!colaboradorId) { showToast('Selecione um colaborador', true); return; }
+
+      const itensValidos = itens.filter(i => i.epi_id && i.quantidade > 0);
+      if (!itensValidos.length) { showToast('Adicione ao menos um EPI', true); return; }
+
+      const btn = document.getElementById('btn-enviar');
+      btn.disabled = true;
+      btn.innerHTML = '<span>⏳</span> Enviando…';
+
+      try {
+        const res  = await fetch('./salvar-solicitacao.php', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            colaborador_id: Number(colaboradorId),
+            prioridade,
+            observacao: observacoes || null,
+            itens: itensValidos.map(i => ({
+              epi_id:     Number(i.epi_id),
+              quantidade: i.quantidade,
+            })),
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Erro ao salvar');
+
+        // Resetar form
+        document.getElementById('funcionario-id').value = '';
+        document.getElementById('observacoes').value = '';
+        document.getElementById('prioridade').value = 'normal';
+        itens = [{ epi_id: '', quantidade: 1 }];
+        renderItens();
+
+        // Modal de sucesso
+        document.getElementById('modal-numero').textContent = `Protocolo #${data.id}`;
+        document.getElementById('modal-sucesso').classList.remove('hidden');
+
+        carregarHistorico();
+      } catch (err) {
+        showToast(err.message || 'Erro ao enviar', true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>✈</span> Enviar solicitação';
+      }
+    }
+
+    // ── Histórico ─────────────────────────────────────────────────────────
+    const statusInfo = {
+      0: { label: 'Aguardando',   desc: 'Aguardando aprovação do almoxarifado', css: 's-pendente'  },
+      1: { label: 'Em separação', desc: 'Aprovada — almoxarifado está separando', css: 's-aprovada' },
+      2: { label: 'Despachada',   desc: 'EPIs despachados e termo emitido',      css: 's-atendida'  },
+      3: { label: 'Rejeitada',    desc: 'Solicitação recusada',                  css: 's-rejeitada' },
+    };
+
+    async function carregarHistorico() {
+      if (!currentUser) return;
+      const res = await fetch('./get-historico.php');
+      if (!res.ok) { renderHistorico([]); return; }
+      const lista = await res.json();
+      renderHistorico(Array.isArray(lista) ? lista : []);
+    }
+
+    function renderHistorico(lista) {
+      const el = document.getElementById('historico-container');
+
+      if (!lista.length) {
+        el.innerHTML = `<div class="empty-state">
+          <div class="empty-icon">🕐</div>
+          <p>Você ainda não enviou solicitações.</p>
+        </div>`;
+        // Zerar badge
+        const badge = document.getElementById('badge-pendentes');
+        badge.classList.add('hidden');
+        return;
+      }
+
+      // Atualizar badge de pendentes/aprovadas
+      const ativas = lista.filter(s => s.status === 0 || s.status === 1).length;
+      const badge = document.getElementById('badge-pendentes');
+      if (ativas > 0) {
+        badge.textContent = ativas > 99 ? '99+' : ativas;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+
+      el.innerHTML = lista.map(s => {
+        const info = statusInfo[s.status] ?? statusInfo[0];
+        const itensHtml = (s.itens || []).map(i =>
+          `<li><span>${i.epi_descricao || 'EPI'}</span><span>×${i.quantidade}</span></li>`
+        ).join('');
+
+        return `<div class="historico-item ${info.css}">
+          <div class="hist-header">
+            <div>
+              <div class="hist-status">${info.label} <span class="hist-num">#${s.id}</span></div>
+              <div class="hist-desc">${info.desc}</div>
+            </div>
+            <span class="badge p-${s.prioridade}">${s.prioridade}</span>
+          </div>
+          <div class="hist-body">
+            <div><span style="opacity:.65">Para:</span> <strong>${s.colaborador_nome || '—'}</strong></div>
+            <ul class="hist-itens">${itensHtml}</ul>
+            <div class="hist-date">${new Date(s.data).toLocaleString('pt-BR')}</div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    // ── Navegação entre abas ──────────────────────────────────────────────
+    function showTab(aba) {
+      document.getElementById('pane-nova').classList.toggle('hidden', aba !== 'nova');
+      document.getElementById('pane-minhas').classList.toggle('hidden', aba !== 'minhas');
+      document.getElementById('tab-nova').classList.toggle('active', aba === 'nova');
+      document.getElementById('tab-minhas').classList.toggle('active', aba === 'minhas');
+      if (aba === 'minhas') carregarHistorico();
+    }
+
+    // ── Modal ─────────────────────────────────────────────────────────────
+    function closeModal(irPara) {
+      document.getElementById('modal-sucesso').classList.add('hidden');
+      if (irPara) showTab(irPara);
+    }
+
+    // ── Toast ─────────────────────────────────────────────────────────────
+    let toastTimer = null;
+    function showToast(msg, isError = false) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'toast' + (isError ? ' error' : '');
+      requestAnimationFrame(() => t.classList.add('show'));
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    // ── Logout ────────────────────────────────────────────────────────────
+    async function logout() {
+      await fetch('./logout.php', { method: 'POST' });
+      localStorage.removeItem('app_lider_login');
+      window.location.href = 'login.html';
+    }
+
+    // ── Iniciar ───────────────────────────────────────────────────────────
+    init();
+  </script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js');
+    }
+  </script>
+</body>
+</html>
