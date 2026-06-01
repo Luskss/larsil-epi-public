@@ -1,12 +1,6 @@
 <?php
-header('Content-Type: application/json; charset=utf-8');
-session_start();
-
-if (!isset($_SESSION['authenticated']) || $_SESSION['authenticated'] !== true) {
-    http_response_code(401);
-    echo json_encode(['error' => 'Não autenticado']);
-    exit;
-}
+require_once __DIR__ . '/bootstrap.php';
+require_auth();
 
 try {
     require_once __DIR__ . '/config.php';
@@ -21,7 +15,6 @@ try {
     ");
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Agrupa por NOME_GRUPO
     $grupos = [];
     foreach ($rows as $row) {
         $grupo = $row['NOME_GRUPO'] ?? 'Sem grupo';
@@ -36,7 +29,7 @@ try {
     }
 
     echo json_encode(array_values($grupos), JSON_UNESCAPED_UNICODE);
-} catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode(['error' => $e->getMessage()]);
+} catch (Throwable $e) {
+    log_internal('get-epis', $e);
+    json_error(500, 'Erro ao carregar EPIs');
 }

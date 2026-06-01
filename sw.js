@@ -1,4 +1,4 @@
-const CACHE_NAME = 'app-lider-v6';
+const CACHE_NAME = 'app-lider-v7';
 
 const STATIC_ASSETS = [
   './index.html',
@@ -11,51 +11,73 @@ const STATIC_ASSETS = [
   './img/logo512.png',
 ];
 
-// Instala e faz cache dos assets estáticos
+// Instala e faz cache dos assets estáticos. Não chama skipWaiting automaticamente:
+// a página decide quando ativar a nova versão (evita quebrar abas abertas).
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
   );
-  self.skipWaiting();
 });
 
 // Remove caches antigas ao ativar
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
+    caches.keys()
+      .then((keys) => Promise.all(
         keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
-      )
-    )
+      ))
+      .then(() => self.clients.claim())
   );
-  self.clients.claim();
+});
+
+// Permite que a página force a ativação da nova versão
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') self.skipWaiting();
 });
 
 // Estratégia de fetch
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
+  const req = event.request;
 
-  // Chamadas PHP e Supabase → sempre rede (nunca cachear auth/api)
-  if (url.pathname.endsWith('.php') || url.hostname.includes('supabase.co')) return;
+  // Só intercepta GET same-origin
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+
+  // Chamadas PHP → sempre rede (auth/api nunca em cache)
+  if (url.pathname.endsWith('.php')) return;
+
+  // Navegação (HTML) → network-first com fallback para cache (evita app preso em versão antiga)
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req)
+        .then((response) => {
+          if (response && response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put('./index.html', clone));
+          }
+          return response;
+        })
+        .catch(() =>
+          caches.match(req).then((c) => c || caches.match('./index.html'))
+        )
+    );
+    return;
+  }
 
   // Assets estáticos → cache primeiro, rede como fallback
   event.respondWith(
-    caches.match(event.request).then((cached) => {
+    caches.match(req).then((cached) => {
       if (cached) return cached;
-
-      return fetch(event.request).then((response) => {
-        // Armazena apenas assets estáticos no cache
-        if (response.ok) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return response;
-      }).catch(() => {
-        // Offline e não tem cache → retorna index.html como fallback
-        if (event.request.mode === 'navigate') {
-          return caches.match('./index.html');
-        }
-      });
+      return fetch(req)
+        .then((response) => {
+          if (response && response.ok && response.type === 'basic') {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+          }
+          return response;
+        })
+        .catch(() => new Response('', { status: 504, statusText: 'Offline' }));
     })
   );
 });

@@ -34,7 +34,7 @@
           </div>
           <div class="form-group">
             <label for="senha">Senha</label>
-            <input type="password" id="senha" placeholder="••••••••" required autocomplete="current-password" />
+            <input type="password" id="senha" placeholder="••••••••" autocomplete="current-password" />
           </div>
           <button type="submit" class="btn-primary" id="btn-login">Entrar</button>
         </form>
@@ -44,9 +44,10 @@
 
   <script>
     // Já logado (sessão PHP ativa) → vai direto pro app
-    fetch('./check-auth.php').then(r => r.json()).then(d => {
-      if (d.authenticated) window.location.href = 'index.html';
-    });
+    fetch('./check-auth.php', { cache: 'no-store', credentials: 'same-origin' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d && d.authenticated) window.location.href = 'index.html'; })
+      .catch(() => {});
 
     const form     = document.getElementById('form-login');
     const errBox   = document.getElementById('error-box');
@@ -64,10 +65,12 @@
       try {
         const res  = await fetch('./auth.php', {
           method: 'POST',
+          cache: 'no-store',
+          credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ login, senha }),
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
           errBox.textContent = data.error || 'Login ou senha incorretos.';
@@ -75,7 +78,6 @@
           btnLogin.disabled = false;
           btnLogin.textContent = 'Entrar';
         } else {
-          localStorage.setItem('app_lider_login', data.login);
           window.location.href = 'index.html';
         }
       } catch {

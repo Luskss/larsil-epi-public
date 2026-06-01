@@ -3,10 +3,15 @@
 $envFile = __DIR__ . '/.env';
 if (!file_exists($envFile)) {
     http_response_code(500);
-    die(json_encode(['error' => 'Arquivo .env não encontrado']));
+    header('Content-Type: application/json; charset=utf-8');
+    die(json_encode(['error' => 'Configuração ausente']));
 }
 
 $env = parse_ini_file($envFile);
+
+if (!defined('APP_DEBUG')) {
+    define('APP_DEBUG', filter_var($env['APP_DEBUG'] ?? false, FILTER_VALIDATE_BOOLEAN));
+}
 
 define('DB_SERVER',   $env['DB_SERVER']   ?? '');
 define('DB_DATABASE', $env['DB_DATABASE'] ?? '');
