@@ -1,0 +1,852 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fichas de EPI - EPI Manager</title>
+<link rel="stylesheet" href="css/styles.css">
+<style>
+/* ── Barra de seleção ── */
+.sel-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);margin-bottom:16px}
+.cb-wrap{position:relative;flex:1;min-width:200px;max-width:460px}
+.cb-btn{width:100%;height:38px;padding:0 12px;border-radius:8px;cursor:pointer;border:1.5px solid var(--border);background:#fff;font-size:14px;color:var(--muted-fg);display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;transition:border-color .15s,box-shadow .15s}
+.cb-btn:hover{border-color:var(--primary)}
+.cb-btn.sel{border-color:var(--primary);color:var(--primary);font-weight:500}
+.cb-btn svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;flex-shrink:0;transition:transform .15s}
+.cb-btn.open svg{transform:rotate(180deg)}
+.cb-drop{position:absolute;top:calc(100% + 5px);left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 28px -4px rgba(0,0,0,.13);z-index:200;display:none;overflow:hidden}
+.cb-drop.open{display:flex;flex-direction:column}
+.cb-search-wrap{padding:9px 10px 8px;border-bottom:1px solid var(--border);flex-shrink:0;position:relative}
+.cb-search-wrap svg{position:absolute;left:18px;top:50%;transform:translateY(-50%);width:14px;height:14px;stroke:var(--muted-fg);stroke-width:2;fill:none;pointer-events:none}
+.cb-search-in{width:100%;height:32px;padding:0 10px 0 30px;border-radius:6px;border:1px solid var(--border);background:var(--muted);font-size:13px;color:var(--fg);outline:none}
+.cb-search-in:focus{border-color:var(--primary);background:#fff;box-shadow:0 0 0 2px color-mix(in oklab,var(--primary) 15%,transparent)}
+.cb-list{max-height:260px;overflow-y:auto}
+.cb-item{padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px}
+.cb-item:last-child{border-bottom:none}
+.cb-item:hover,.cb-item.hi{background:var(--muted)}
+.cb-item.act{background:color-mix(in oklab,var(--primary) 10%,transparent)}
+.cb-item-name{font-weight:500;line-height:1.3}
+.cb-item-sub{color:var(--muted-fg);font-size:12px;margin-top:2px}
+.cb-empty{padding:18px;text-align:center;color:var(--muted-fg);font-size:13px}
+mark{background:color-mix(in oklab,var(--accent) 38%,transparent);border-radius:2px;padding:0 1px}
+/* ── Botões barra ── */
+.btn-bar{display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 14px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:13.5px;font-weight:500;cursor:pointer;color:var(--fg);white-space:nowrap;transition:all .15s}
+.btn-bar:hover:not(:disabled){background:var(--muted);border-color:var(--primary);color:var(--primary)}
+.btn-bar:disabled{opacity:.45;cursor:default}
+.btn-bar svg{width:15px;height:15px;stroke:currentColor;stroke-width:2;fill:none}
+.btn-bar.pri{background:var(--primary);color:#fff;border-color:var(--primary)}
+.btn-bar.pri:hover:not(:disabled){background:color-mix(in oklab,var(--primary) 85%,black);border-color:var(--primary);color:#fff}
+/* ── Banner alertas ── */
+.alert-bar{display:none;align-items:center;gap:10px;padding:10px 16px;background:#fef9c3;border:1px solid #fde047;border-radius:10px;color:#854d0e;font-size:13.5px;margin-bottom:14px}
+.alert-bar.show{display:flex}
+.alert-bar svg{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none;flex-shrink:0}
+/* ── Tabs ── */
+.tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:16px}
+.tab-btn{padding:9px 20px;font-size:14px;font-weight:500;cursor:pointer;border:none;background:none;color:var(--muted-fg);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s}
+.tab-btn:hover{color:var(--primary)}
+.tab-btn.act{color:var(--primary);border-bottom-color:var(--primary)}
+.tab-badge{display:inline-block;background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:99px;padding:1px 6px;margin-left:5px;vertical-align:middle;min-width:18px;text-align:center}
+/* ── Painel Tab ── */
+.tab-panel{display:none}
+.tab-panel.act{display:block}
+/* ── Cards de Termos ── */
+.termos-list{display:flex;flex-direction:column;gap:12px}
+.termo-card{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.termo-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--muted);flex-wrap:wrap}
+.termo-head h3{font-size:14px;font-weight:600;margin:0;flex:1;min-width:120px}
+.termo-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto}
+.btn-sm{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;font-size:12.5px;border-radius:7px;border:1px solid var(--border);background:#fff;cursor:pointer;color:var(--fg);font-weight:500;transition:all .15s;white-space:nowrap;text-decoration:none}
+.btn-sm:hover{background:var(--muted);border-color:var(--primary);color:var(--primary)}
+.btn-sm svg{width:13px;height:13px;stroke:currentColor;stroke-width:2;fill:none}
+.btn-sm.danger{border-color:#fca5a5;color:#dc2626}
+.btn-sm.danger:hover{background:#fee2e2;border-color:#dc2626}
+.btn-sm.ok{border-color:#86efac;color:#16a34a}
+.btn-sm.ok:hover{background:#dcfce7;border-color:#16a34a}
+.termo-body{padding:14px 16px}
+.termo-meta{display:flex;gap:16px;font-size:12.5px;color:var(--muted-fg);margin-bottom:10px;flex-wrap:wrap}
+.termo-meta span{display:flex;align-items:center;gap:4px}
+.termo-meta svg{width:13px;height:13px;stroke:currentColor;stroke-width:2;fill:none}
+.termo-epis{font-size:13px;color:var(--fg);line-height:1.8}
+.upload-input{display:none}
+/* ── Tabela de entregas ── */
+.table-head-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px;flex-wrap:wrap}
+.table-head-bar h2{font-size:15px;font-weight:600;margin:0}
+.empty-state{text-align:center;color:var(--muted-fg);padding:52px 20px;font-size:14px}
+/* ── Badges ── */
+.badge{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600}
+.badge.assinado{background:#dcfce7;color:#15803d}
+.badge.pendente{background:#fef9c3;color:#854d0e}
+/* ── Modal ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;align-items:center;justify-content:center}
+.modal-bg.show{display:flex}
+.modal{background:#fff;border-radius:14px;padding:24px 26px;width:min(520px,95vw);max-height:85vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,.22)}
+.modal.modal-wide{width:min(640px,95vw)}
+/* Multi-item entrega */
+.me-panel-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-fg);margin-bottom:10px}
+.me-item-card{background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.me-item-card select{flex:1;height:36px;padding:0 10px;border-radius:8px;border:1px solid var(--border);font-size:13px;color:var(--fg);outline:none;background:#fff;min-width:0}
+.me-item-card select:focus{border-color:var(--primary);box-shadow:0 0 0 2px color-mix(in oklab,var(--primary) 15%,transparent)}
+.me-item-card input[type=number]{width:66px;height:36px;padding:0 8px;border-radius:8px;border:1px solid var(--border);font-size:13px;text-align:center;color:var(--fg);outline:none;flex-shrink:0}
+.me-item-card input[type=number]:focus{border-color:var(--primary);box-shadow:0 0 0 2px color-mix(in oklab,var(--primary) 15%,transparent)}
+.me-unit-lbl{font-size:11px;color:var(--muted-fg);white-space:nowrap;flex-shrink:0}
+.me-del-btn{background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:6px;color:var(--muted-fg);line-height:1;flex-shrink:0;font-size:14px}
+.me-del-btn:hover{background:#fee2e2;color:#dc2626}
+.btn-add-item{display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:500;color:var(--primary);background:none;border:1.5px dashed var(--primary);border-radius:9px;padding:8px 0;cursor:pointer;width:100%;transition:background .15s;margin-bottom:0}
+.btn-add-item:hover{background:color-mix(in oklab,var(--primary) 8%,transparent)}
+.modal h2{font-size:16px;font-weight:700;margin-bottom:18px;display:flex;align-items:center;gap:8px}
+.modal h2 svg{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:13px;font-weight:500;margin-bottom:5px;color:var(--fg)}
+.form-group input,.form-group select{width:100%;height:38px;padding:0 12px;border-radius:8px;border:1px solid var(--border);font-size:14px;color:var(--fg);outline:none;background:#fff}
+.form-group input:focus,.form-group select:focus{border-color:var(--primary);box-shadow:0 0 0 2px color-mix(in oklab,var(--primary) 15%,transparent)}
+.modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+.btn-cancel{padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:14px;font-weight:500;color:var(--fg)}
+.btn-cancel:hover{background:var(--muted)}
+.btn-save{padding:8px 18px;border-radius:8px;border:none;background:var(--primary);color:#fff;cursor:pointer;font-size:14px;font-weight:600}
+.btn-save:hover{background:color-mix(in oklab,var(--primary) 85%,black)}
+.btn-save:disabled{opacity:.5;cursor:default}
+/* Checklist no modal de gerar termo */
+.check-list{max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:4px 0;margin-top:4px}
+.check-item{display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;font-size:13.5px}
+.check-item:hover{background:var(--muted)}
+.check-item input[type=checkbox]{width:15px;height:15px;cursor:pointer;accent-color:var(--primary)}
+.check-item .ci-name{font-weight:500}
+.check-item .ci-sub{font-size:12px;color:var(--muted-fg)}
+/* ── Filtro equipe ── */
+.filter-wrap{position:relative;display:flex;align-items:center;flex-shrink:0}
+.filter-icon-svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;stroke:var(--muted-fg);stroke-width:2;fill:none;pointer-events:none}
+.filter-select{height:38px;padding:0 8px 0 30px;border-radius:8px;border:1.5px solid var(--border);background:#fff;font-size:13px;color:var(--fg);cursor:pointer;outline:none;min-width:170px;max-width:240px;transition:border-color .15s}
+.filter-select:hover{border-color:var(--primary)}
+.filter-select:focus{border-color:var(--primary);box-shadow:0 0 0 2px color-mix(in oklab,var(--primary) 15%,transparent)}
+.filter-select.act{border-color:var(--primary);color:var(--primary);font-weight:500}
+.pend-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#f59e0b;margin-left:5px;vertical-align:middle;flex-shrink:0}
+.alert-bar.clickable{cursor:pointer}
+.alert-bar.clickable:hover{background:#fef08a;border-color:#facc15}
+@media print{.sel-bar,.sidebar,.topbar,.tabs,.alert-bar{display:none!important}.content{padding:0!important}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="page-head">
+    <div><h1>Fichas de EPI</h1><p>Entregas e termos de EPI por funcionário</p></div>
+  </div>
+
+  <!-- Barra seleção + ações -->
+  <div class="sel-bar">
+    <div class="filter-wrap" title="Filtrar por equipe">
+      <svg class="filter-icon-svg" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      <select class="filter-select" id="filter-equipe" onchange="onFilterChange()">
+        <option value="">Todas as equipes</option>
+      </select>
+    </div>
+    <div class="cb-wrap" id="cb-box" style="max-width:480px">
+      <button class="cb-btn" id="cb-btn" type="button" onclick="toggleDrop()" onkeydown="onCbKey(event)">
+        <span id="cb-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Selecione um funcionário</span>
+        <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="cb-drop" id="cb-drop"></div>
+    </div>
+    <button class="btn-bar pri" id="btn-nova" onclick="openModalEntrega()" disabled>
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Nova Entrega
+    </button>
+    <button class="btn-bar" id="btn-gerar" onclick="openModalTermo()" disabled>
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+      Gerar Termo
+    </button>
+    <button class="btn-bar" id="btn-limpar" onclick="limparFiltros()" title="Limpar filtros" style="margin-left:auto">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      Limpar filtros
+    </button>
+  </div>
+
+  <!-- Banner alertas de termos pendentes -->
+  <div class="alert-bar" id="alert-bar" onclick="onAlertClick()">
+    <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <span id="alert-msg"></span>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs" id="tabs-bar" style="display:none">
+    <button class="tab-btn act" id="tab-termos-btn" onclick="switchTab('termos')">
+      Termos<span class="tab-badge" id="badge-pendentes" style="display:none">0</span>
+    </button>
+    <button class="tab-btn" id="tab-entregas-btn" onclick="switchTab('entregas')">Entregas</button>
+  </div>
+
+  <!-- Tab Termos -->
+  <div class="tab-panel act" id="tab-termos">
+    <div id="termos-list" class="termos-list">
+      <div class="card"><div class="empty-state">Selecione um funcionário para ver os termos</div></div>
+    </div>
+  </div>
+
+  <!-- Tab Entregas -->
+  <div class="tab-panel" id="tab-entregas">
+    <div class="card">
+      <div class="table-head-bar">
+        <h2>Histórico de Entregas</h2>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th style="white-space:nowrap">Data Entrega</th>
+              <th>EPI</th>
+              <th style="width:80px">CA</th>
+              <th style="width:90px;text-align:center">Termo</th>
+              <th style="width:50px;text-align:center">Qtd</th>
+              <th style="width:110px">Devolução</th>
+              <th style="width:90px">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-entregas">
+            <tr><td colspan="7" class="empty-state">Selecione um funcionário</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Nova Entrega -->
+<div class="modal-bg" id="modal-entrega">
+  <div class="modal modal-wide">
+    <h2>
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Registrar Nova Entrega
+    </h2>
+    <div class="me-panel-title">Itens da Entrega</div>
+    <div id="me-items-list"></div>
+    <button class="btn-add-item" onclick="addEpiItem()">+ Adicionar EPI</button>
+    <div class="form-group" style="margin-top:16px">
+      <label>Data da Entrega</label>
+      <input type="date" id="m-data">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModalEntrega()">Cancelar</button>
+      <button class="btn-save" id="btn-save-entrega" onclick="salvarEntrega()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Gerar Termo -->
+<div class="modal-bg" id="modal-termo">
+  <div class="modal">
+    <h2>
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Gerar Novo Termo de Entrega
+    </h2>
+    <p style="font-size:13px;color:var(--muted-fg);margin-bottom:12px">Selecione as entregas ainda não vinculadas a um termo:</p>
+    <div class="check-list" id="check-list"><div class="cb-empty">Sem entregas disponíveis</div></div>
+    <div id="check-msg" style="font-size:12.5px;color:var(--muted-fg);margin-top:8px"></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModalTermo()">Cancelar</button>
+      <button class="btn-save" id="btn-save-termo" onclick="gerarTermo()" disabled>Gerar Termo</button>
+    </div>
+  </div>
+</div>
+
+<script defer src="js/config.js"></script>
+<script defer src="js/auth.js"></script>
+<script defer src="js/utils.js"></script>
+<script defer src="js/_layout.js"></script>
+<script>
+/* ─────────────── Estado ─────────────── */
+let allColabs = [], filtered = [], hiIdx = -1;
+let selId = null, selName = null;
+let allEpis = [];
+let entregas = [];
+let termos   = [];
+let filterKey    = '';          // "EMPRESA||EQUIPE" ou ""
+let pendentes    = [];          // [{colaborador_id, colaborador_nome, EMPRESA, EQUIPE, n_pendentes}]
+let pendentesSet = new Set();
+let showOnlyPend = false;
+
+/* ─────────────── Init ─────────────── */
+document.addEventListener('authReady', async () => {
+  const [resC, resE, resP] = await Promise.all([
+    fetch('api/colaboradores.php'),
+    fetch('api/epis.php'),
+    fetch('api/termos.php?action=pendentes'),
+  ]);
+  allColabs    = resC.ok ? await resC.json() : [];
+  allEpis      = resE.ok ? await resE.json() : [];
+  pendentes    = resP.ok ? await resP.json() : [];
+  pendentesSet = new Set(pendentes.map(p => Number(p.colaborador_id)));
+  filtered     = allColabs.slice(0, 60);
+  buildEquipeFilter();
+  updateGlobalAlert();
+});
+
+document.addEventListener('click', e => {
+  if (!document.getElementById('cb-box').contains(e.target)) closeDrop();
+});
+
+/* ─────────────── Combobox ─────────────── */
+function getQ() {
+  const el = document.getElementById('cb-search');
+  return el ? el.value.trim().toLowerCase() : '';
+}
+
+function applyFilter() {
+  const q = getQ();
+  let base = allColabs;
+  if (filterKey) {
+    const [emp, eq] = filterKey.split('||');
+    base = allColabs.filter(c => (c.EMPRESA || '—') === emp && (c.EQUIPE || '—') === eq);
+  }
+  if (showOnlyPend) {
+    base = base.filter(c => pendentesSet.has(Number(c.ID)));
+  }
+  filtered = q
+    ? base.filter(c =>
+        c.NOME.toLowerCase().includes(q) ||
+        (c.CPF      || '').toLowerCase().includes(q) ||
+        (c.MATRICULA|| '').toLowerCase().includes(q))
+    : base.slice(0, 80);
+  hiIdx = -1;
+}
+
+function renderList() {
+  const q    = getQ();
+  const list = document.getElementById('cb-list');
+  if (!list) return;
+  if (!filtered.length) {
+    list.innerHTML = '<div class="cb-empty">' + (showOnlyPend ? 'Nenhum funcionário com pendência' : 'Nenhum funcionário encontrado') + '</div>';
+    return;
+  }
+  list.innerHTML = filtered.map((c, i) => {
+    const isPend = pendentesSet.has(Number(c.ID));
+    return '<div class="cb-item' + (c.ID==selId?' act':'') + (i===hiIdx?' hi':'') +
+      '" onclick="event.stopPropagation();selectColab(' + c.ID + ')">' +
+      '<div class="cb-item-name">' + hl(c.NOME, q) +
+        (isPend ? '<span class="pend-dot" title="Tem termos pendentes de assinatura"></span>' : '') +
+      '</div>' +
+      '<div class="cb-item-sub">' + (c.EMPRESA||'---') + ' - ' + (c.FUNCAO||'---') + (c.EQUIPE?' - '+c.EQUIPE:'') + '</div>' +
+      '</div>';
+  }).join('');
+}
+
+function hl(text, q) {
+  if (!q) return text;
+  const rx = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi');
+  return text.replace(rx, '<mark>$1</mark>');
+}
+
+function toggleDrop() {
+  document.getElementById('cb-drop').classList.contains('open') ? closeDrop() : openDrop();
+}
+
+function openDrop() {
+  const dd = document.getElementById('cb-drop');
+  if (!document.getElementById('cb-search')) {
+    dd.innerHTML =
+      '<div class="cb-search-wrap">' +
+      '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
+      '<input class="cb-search-in" id="cb-search" placeholder="Buscar funcionário..." autocomplete="off"' +
+      ' oninput="onDropSearch()" onkeydown="onSearchKey(event)">' +
+      '</div>' +
+      '<div class="cb-list" id="cb-list"></div>';
+  }
+  applyFilter();
+  renderList();
+  dd.classList.add('open');
+  document.getElementById('cb-btn').classList.add('open');
+  setTimeout(() => {
+    const s = document.getElementById('cb-search');
+    if (s) { s.focus(); s.select(); }
+  }, 20);
+}
+
+function closeDrop() {
+  document.getElementById('cb-drop').classList.remove('open');
+  document.getElementById('cb-btn').classList.remove('open');
+  hiIdx = -1;
+}
+
+function onDropSearch() { applyFilter(); renderList(); }
+
+function onSearchKey(e) {
+  if (e.key === 'ArrowDown') {
+    hiIdx = Math.min(hiIdx + 1, filtered.length - 1);
+    renderList(); scrollHi(); e.preventDefault();
+  } else if (e.key === 'ArrowUp') {
+    hiIdx = Math.max(hiIdx - 1, 0);
+    renderList(); scrollHi(); e.preventDefault();
+  } else if (e.key === 'Enter') {
+    if (hiIdx >= 0) selectColab(filtered[hiIdx].ID);
+    else if (filtered.length === 1) selectColab(filtered[0].ID);
+    e.preventDefault();
+  } else if (e.key === 'Escape') {
+    closeDrop();
+  }
+}
+
+function onCbKey(e) {
+  if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+    openDrop(); e.preventDefault();
+  }
+}
+
+function scrollHi() {
+  const list  = document.getElementById('cb-list');
+  const items = list ? list.querySelectorAll('.cb-item') : [];
+  if (items[hiIdx]) items[hiIdx].scrollIntoView({ block: 'nearest' });
+}
+
+function selectColab(id) {
+  const c = allColabs.find(x => x.ID == id);
+  if (!c) return;
+  selId   = c.ID;
+  selName = c.NOME;
+  document.getElementById('cb-label').textContent = c.NOME;
+  document.getElementById('cb-btn').classList.add('sel');
+  document.getElementById('btn-nova').disabled = false;
+  closeDrop();
+  loadAll(c.ID);
+}
+
+/* ─────────────── Filtro por equipe ─────────────── */
+function buildEquipeFilter() {
+  const map = {};
+  allColabs.forEach(c => {
+    const emp = c.EMPRESA || '—';
+    const eq  = c.EQUIPE  || '—';
+    if (!map[emp]) map[emp] = new Set();
+    map[emp].add(eq);
+  });
+  const sel = document.getElementById('filter-equipe');
+  sel.innerHTML = '<option value="">Todas as equipes</option>';
+  Object.keys(map).sort().forEach(emp => {
+    const grp = document.createElement('optgroup');
+    grp.label = emp;
+    [...map[emp]].sort().forEach(eq => {
+      const opt = document.createElement('option');
+      opt.value = emp + '||' + eq;
+      opt.textContent = eq;
+      grp.appendChild(opt);
+    });
+    sel.appendChild(grp);
+  });
+}
+
+function onFilterChange() {
+  filterKey = document.getElementById('filter-equipe').value;
+  document.getElementById('filter-equipe').classList.toggle('act', !!filterKey);
+  showOnlyPend = false;
+  applyFilter();
+  if (document.getElementById('cb-drop').classList.contains('open')) renderList();
+  if (!selId) updateGlobalAlert();
+}
+
+function limparFiltros() {
+  // Reset equipe
+  document.getElementById('filter-equipe').value = '';
+  filterKey = '';
+  document.getElementById('filter-equipe').classList.remove('act');
+  // Reset colaborador selecionado
+  selId = null;
+  document.getElementById('cb-label').textContent = 'Selecione um funcionário';
+  document.getElementById('cb-btn').classList.remove('sel');
+  document.getElementById('btn-nova').disabled = true;
+  document.getElementById('btn-gerar').disabled = true;
+  document.getElementById('tabs-bar').style.display = 'none';
+  document.getElementById('tab-termos').innerHTML = '<div class="card"><div class="empty-state">Selecione um funcionário para ver os termos</div></div>';
+  document.getElementById('tbody-entregas').innerHTML = '<tr><td colspan="7" class="empty-state">Selecione um funcionário</td></tr>';
+  document.getElementById('alert-bar').classList.remove('show');
+  showOnlyPend = false;
+  applyFilter();
+}
+
+function onAlertClick() {
+  if (selId) return;
+  showOnlyPend = !showOnlyPend;
+  applyFilter();
+  updateGlobalAlert();
+  openDrop();
+}
+
+function updateGlobalAlert() {
+  if (selId) return;
+  const bar   = document.getElementById('alert-bar');
+  const msg   = document.getElementById('alert-msg');
+  const badge = document.getElementById('badge-pendentes');
+  badge.style.display = 'none';
+  let fp = pendentes;
+  if (filterKey) {
+    const [emp, eq] = filterKey.split('||');
+    fp = pendentes.filter(p => (p.EMPRESA || '—') === emp && (p.EQUIPE || '—') === eq);
+  }
+  if (fp.length) {
+    const nTermos = fp.reduce((s, p) => s + Number(p.n_pendentes || 0), 0);
+    const prefix  = showOnlyPend ? 'Mostrando pendentes — ' : '';
+    const suffix  = showOnlyPend ? ' Clique para ver todos.' : ' Clique para ver os pendentes.';
+    msg.textContent = prefix + fp.length + ' funcionário(s) com ' + nTermos + ' termo(s) pendente(s).' + suffix;
+    bar.classList.add('show', 'clickable');
+  } else {
+    bar.classList.remove('show', 'clickable');
+  }
+}
+
+async function refreshPendentes() {
+  const res = await fetch('api/termos.php?action=pendentes');
+  if (!res.ok) return;
+  pendentes    = await res.json();
+  pendentesSet = new Set(pendentes.map(p => Number(p.colaborador_id)));
+  if (document.getElementById('cb-drop').classList.contains('open')) renderList();
+}
+
+/* ─────────────── Carregar dados ─────────────── */
+async function loadAll(id) {
+  document.getElementById('termos-list').innerHTML =
+    '<div class="card"><div class="empty-state">Carregando...</div></div>';
+  document.getElementById('tbody-entregas').innerHTML =
+    '<tr><td colspan="7" class="empty-state">Carregando...</td></tr>';
+  document.getElementById('tabs-bar').style.display = 'flex';
+
+  const [resE, resT] = await Promise.all([
+    fetch('api/entregas.php?colaborador_id=' + id),
+    fetch('api/termos.php?colaborador_id='   + id),
+  ]);
+
+  entregas = resE.ok ? await resE.json() : [];
+  termos   = resT.ok ? await resT.json() : [];
+
+  renderEntregas();
+  renderTermos();
+  updateGerarBtn();
+  updateAlerts();
+  refreshPendentes();
+}
+
+/* ─────────────── Tab switch ─────────────── */
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('act'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('act'));
+  document.getElementById('tab-' + tab + '-btn').classList.add('act');
+  document.getElementById('tab-' + tab).classList.add('act');
+}
+
+/* ─────────────── Render Termos ─────────────── */
+function renderTermos() {
+  const list = document.getElementById('termos-list');
+  if (!termos.length) {
+    list.innerHTML = '<div class="card"><div class="empty-state">Nenhum termo gerado ainda</div></div>';
+    return;
+  }
+  list.innerHTML = termos.map(t => {
+    const num      = String(t.ID_TERMO).padStart(6, '0');
+    const assinado = !!t.DATA_ASSINATURA;
+    const badge    = assinado
+      ? '<span class="badge assinado">Assinado</span>'
+      : '<span class="badge pendente">Pendente de assinatura</span>';
+
+    const epis = (t.ENTREGAS || []).map(e =>
+      escHtml(e.EPI_DESCRICAO || '---') +
+      (e.CA ? ' (CA ' + e.CA + ')' : '') +
+      ' &times; ' + e.QUANTIDADE
+    ).join(' &nbsp;&middot;&nbsp; ');
+
+    const btnVer = `<a class="btn-sm" href="api/termo-print.php?id=${t.ID_TERMO}" target="_blank">
+      <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Ver documento</a>`;
+
+    const btnAssinar = (!assinado && t.CAMINHO_PRE)
+      ? `<a class="btn-sm warn" href="${escAttr(t.CAMINHO_PRE)}" target="_blank">
+          <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>Assinar</a>`
+      : '';
+
+    const btnSigned = t.CAMINHO_POS
+      ? `<a class="btn-sm ok" href="${escAttr(t.CAMINHO_POS)}" target="_blank">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Ver assinado</a>`
+      : assinado
+        ? `<a class="btn-sm ok" href="api/termo-print.php?id=${t.ID_TERMO}" target="_blank">
+            <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Ver assinado</a>`
+        : '';
+
+    const uploadBtn = !assinado
+      ? `<label class="btn-sm" title="Enviar PDF assinado" style="cursor:pointer">
+          <svg viewBox="0 0 24 24"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg>
+          Upload assinado
+          <input class="upload-input" type="file" accept=".pdf,.jpg,.jpeg,.png" onchange="handleUpload(event,${t.ID_TERMO})">
+        </label>`
+      : '';
+
+    const metaSig = assinado
+      ? `<span><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Assinado em ${fmtDate(t.DATA_ASSINATURA)}</span>`
+      : '';
+
+    return `<div class="termo-card" id="termo-card-${t.ID_TERMO}">
+      <div class="termo-head">
+        <h3>Termo #${num}</h3>
+        ${badge}
+        <div class="termo-actions">${btnVer}${btnAssinar}${btnSigned}${uploadBtn}</div>
+      </div>
+      <div class="termo-body">
+        <div class="termo-meta">
+          <span><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Criado em ${fmtDate(t.DATA_CRIACAO)}</span>
+          <span>${t.QTD_ITENS} item(s)</span>
+          ${metaSig}
+        </div>
+        <div class="termo-epis">${epis || '---'}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ─────────────── Render Entregas ─────────────── */
+function renderEntregas() {
+  const tbody = document.getElementById('tbody-entregas');
+  if (!entregas.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Nenhuma entrega registrada</td></tr>';
+    return;
+  }
+  tbody.innerHTML = entregas.map(e => {
+    const termoCell = e.TERMO_ID
+      ? '<a href="api/termo-print.php?id=' + e.TERMO_ID + '" target="_blank" style="font-family:monospace;color:var(--primary);text-decoration:none">#' + String(e.TERMO_ID).padStart(6,'0') + '</a>'
+      : '<span style="color:var(--muted-fg)">—</span>';
+    const devCell = e.DATA_DEVOLUCAO ? fmtDate(e.DATA_DEVOLUCAO) : '<span style="color:var(--muted-fg)">—</span>';
+    const acoes = e.TERMO_ID
+      ? '<span style="color:var(--muted-fg)">—</span>'
+      : `<div style="display:flex;gap:5px">
+          <button class="btn-sm" title="Registrar devolução" onclick="registrarDevolucao(${e.ID_ENTREGA})">
+            <svg viewBox="0 0 24 24"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 00-4-4H4"/></svg>
+          </button>
+          <button class="btn-sm danger" title="Excluir" onclick="excluirEntrega(${e.ID_ENTREGA})">
+            <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+          </button>
+        </div>`;
+    return `<tr>
+      <td style="white-space:nowrap">${fmtDate(e.DATA_ENTREGA)}</td>
+      <td>${escHtml(e.EPI_DESCRICAO || '---')}</td>
+      <td style="font-family:monospace">${e.CA || '---'}</td>
+      <td style="text-align:center">${termoCell}</td>
+      <td style="text-align:center">${e.QUANTIDADE}</td>
+      <td>${devCell}</td>
+      <td>${acoes}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ─────────────── Alertas ─────────────── */
+function updateAlerts() {
+  const pend  = termos.filter(t => !t.DATA_ASSINATURA);
+  const bar   = document.getElementById('alert-bar');
+  const badge = document.getElementById('badge-pendentes');
+  bar.classList.remove('clickable');
+  if (pend.length) {
+    document.getElementById('alert-msg').textContent =
+      pend.length === 1 ? '1 termo aguarda assinatura.' : pend.length + ' termos aguardam assinatura.';
+    bar.classList.add('show');
+    badge.style.display = '';
+    badge.textContent   = pend.length;
+  } else {
+    bar.classList.remove('show');
+    badge.style.display = 'none';
+  }
+}
+
+function updateGerarBtn() {
+  const sem = entregas.filter(e => !e.TERMO_ID);
+  document.getElementById('btn-gerar').disabled = !selId || !sem.length;
+}
+
+/* ─────────────── Helpers ─────────────── */
+function fmtDate(iso) {
+  if (!iso) return '---';
+  try {
+    const s = iso.includes('T') ? iso : iso.replace(' ', 'T');
+    return new Date(s).toLocaleDateString('pt-BR');
+  } catch { return iso; }
+}
+
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function escAttr(s) {
+  return String(s ?? '').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+/* ─────────────── Modal: Nova Entrega (multi-EPI) ─────────────── */
+let epiItems = [];
+let meUid = 0;
+
+function epiOptionsHtml() {
+  return '<option value="">Selecione um EPI...</option>' +
+    allEpis.map(e => `<option value="${e.ID}">${escHtml(e.DESCRICAO)}${e.CA ? ' — CA ' + e.CA : ''}</option>`).join('');
+}
+
+function renderEpiItems() {
+  const container = document.getElementById('me-items-list');
+  const opts = epiOptionsHtml();
+  container.innerHTML = epiItems.map(item => `
+    <div class="me-item-card" data-uid="${item.uid}">
+      <select onchange="onEpiItemChange(${item.uid},'epi',this.value)">${opts}</select>
+      <input type="number" min="1" value="${item.qtd}" onchange="onEpiItemChange(${item.uid},'qtd',this.value)">
+      <span class="me-unit-lbl">unid.</span>
+      ${epiItems.length > 1 ? `<button class="me-del-btn" onclick="removeEpiItem(${item.uid})" title="Remover">&#x2715;</button>` : ''}
+    </div>`).join('');
+  // restaura seleção
+  epiItems.forEach(item => {
+    const row = container.querySelector(`[data-uid="${item.uid}"]`);
+    if (row && item.epiId) row.querySelector('select').value = item.epiId;
+  });
+}
+
+function addEpiItem() {
+  epiItems.push({ uid: ++meUid, epiId: '', qtd: 1 });
+  renderEpiItems();
+}
+
+function removeEpiItem(uid) {
+  epiItems = epiItems.filter(x => x.uid !== uid);
+  renderEpiItems();
+}
+
+function onEpiItemChange(uid, field, val) {
+  const item = epiItems.find(x => x.uid === uid);
+  if (!item) return;
+  if (field === 'epi') item.epiId = val;
+  if (field === 'qtd') item.qtd = Math.max(1, parseInt(val) || 1);
+}
+
+function openModalEntrega() {
+  meUid = 0;
+  epiItems = [{ uid: ++meUid, epiId: '', qtd: 1 }];
+  renderEpiItems();
+  document.getElementById('m-data').value = new Date().toISOString().slice(0,10);
+  document.getElementById('modal-entrega').classList.add('show');
+}
+
+function closeModalEntrega() {
+  document.getElementById('modal-entrega').classList.remove('show');
+}
+
+async function salvarEntrega() {
+  const data   = document.getElementById('m-data').value;
+  const validos = epiItems.filter(x => x.epiId);
+  if (!validos.length) { alert('Selecione pelo menos um EPI.'); return; }
+
+  const btn = document.getElementById('btn-save-entrega');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+  try {
+    for (const item of validos) {
+      const res = await fetch('api/entregas.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ colaborador_id: selId, epi_id: parseInt(item.epiId), quantidade: item.qtd, data_entrega: data }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Falha ao salvar');
+    }
+    closeModalEntrega();
+    await loadAll(selId);
+    switchTab('entregas');
+  } catch(e) {
+    alert('Erro: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Salvar';
+  }
+}
+
+/* ─────────────── Modal: Gerar Termo ─────────────── */
+function openModalTermo() {
+  const sem = entregas.filter(e => !e.TERMO_ID);
+  const cl  = document.getElementById('check-list');
+  if (!sem.length) {
+    cl.innerHTML = '<div class="cb-empty">Nenhuma entrega disponível sem termo</div>';
+    document.getElementById('btn-save-termo').disabled = true;
+  } else {
+    cl.innerHTML = sem.map(e =>
+      `<label class="check-item">
+        <input type="checkbox" class="chk-entrega" value="${e.ID_ENTREGA}" checked>
+        <div>
+          <div class="ci-name">${escHtml(e.EPI_DESCRICAO || '---')}${e.CA ? ' (CA ' + e.CA + ')' : ''}</div>
+          <div class="ci-sub">Qtd: ${e.QUANTIDADE} &nbsp;&middot;&nbsp; ${fmtDate(e.DATA_ENTREGA)}</div>
+        </div>
+      </label>`
+    ).join('');
+    cl.querySelectorAll('.chk-entrega').forEach(c => c.addEventListener('change', updateTermoBtn));
+    updateTermoBtn();
+  }
+  document.getElementById('modal-termo').classList.add('show');
+}
+
+function updateTermoBtn() {
+  const n = document.querySelectorAll('.chk-entrega:checked').length;
+  document.getElementById('btn-save-termo').disabled = n === 0;
+  document.getElementById('check-msg').textContent = n > 0 ? n + ' entrega(s) serão incluídas no termo.' : '';
+}
+
+function closeModalTermo() {
+  document.getElementById('modal-termo').classList.remove('show');
+}
+
+async function gerarTermo() {
+  const ids = [...document.querySelectorAll('.chk-entrega:checked')].map(c => parseInt(c.value));
+  if (!ids.length) return;
+
+  const btn = document.getElementById('btn-save-termo');
+  btn.disabled = true; btn.textContent = 'Gerando...';
+
+  const res = await fetch('api/termos.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ colaborador_id: selId, entrega_ids: ids }),
+  });
+  const json = await res.json();
+  btn.disabled = false; btn.textContent = 'Gerar Termo';
+
+  if (!res.ok) { alert('Erro: ' + (json.error || 'Falha ao gerar termo')); return; }
+  closeModalTermo();
+  await loadAll(selId);
+  switchTab('termos');
+  if (json.id_termo) window.open('api/termo-print.php?id=' + json.id_termo, '_blank');
+}
+
+/* ─────────────── Ações nas entregas ─────────────── */
+async function registrarDevolucao(id) {
+  if (!confirm('Registrar devolução desta entrega agora?')) return;
+  const res = await fetch('api/entregas.php?action=devolucao&id=' + id, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) { const j = await res.json(); alert('Erro: ' + (j.error || 'Falha')); return; }
+  await loadAll(selId);
+}
+
+async function excluirEntrega(id) {
+  if (!confirm('Excluir esta entrega? Esta ação não pode ser desfeita.')) return;
+  const res = await fetch('api/entregas.php?id=' + id, { method: 'DELETE' });
+  const j   = await res.json();
+  if (!res.ok) { alert('Erro: ' + (j.error || 'Falha')); return; }
+  await loadAll(selId);
+}
+
+/* ─────────────── Upload documento assinado ─────────────── */
+async function handleUpload(event, termoId) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const card = document.getElementById('termo-card-' + termoId);
+  const lbl  = card ? card.querySelector('label.btn-sm') : null;
+  if (lbl) { lbl.style.opacity = '.5'; lbl.style.pointerEvents = 'none'; }
+
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('termo_id', termoId);
+
+  const res  = await fetch('api/upload-termo.php', { method: 'POST', body: fd });
+  const json = await res.json();
+
+  if (lbl) { lbl.style.opacity = ''; lbl.style.pointerEvents = ''; }
+  event.target.value = '';
+
+  if (!res.ok) { alert('Erro no upload: ' + (json.error || 'Falha')); return; }
+  await loadAll(selId);
+}
+</script>
+</body>
+</html>

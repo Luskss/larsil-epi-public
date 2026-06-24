@@ -1,0 +1,589 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EPIs — EPI Manager</title>
+<link rel="stylesheet" href="css/styles.css">
+<style>
+/* ── Toggle switch ── */
+.tog{position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0}
+.tog input{opacity:0;width:0;height:0;position:absolute}
+.tog-sl{position:absolute;cursor:pointer;inset:0;background:#cbd5e1;border-radius:99px;transition:.2s}
+.tog-sl:before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.tog input:checked+.tog-sl{background:#22c55e}
+.tog input:checked+.tog-sl:before{transform:translateX(18px)}
+.tog input:disabled+.tog-sl{opacity:.5;cursor:default}
+
+/* ── Sortable headers ── */
+th.sh{cursor:pointer;user-select:none;white-space:nowrap}
+th.sh:hover{background:oklch(0.93 0.015 140)}
+.si{display:inline-flex;flex-direction:column;gap:1px;margin-left:4px;vertical-align:middle;line-height:1}
+.si svg{width:7px;height:5px;display:block;opacity:.25}
+.si.asc svg:first-child{opacity:1}
+.si.desc svg:last-child{opacity:1}
+
+
+/* ── Modal ── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:1000}
+.modal-bg.hidden{display:none}
+.modal-box{background:#fff;border-radius:14px;padding:28px;width:540px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.modal-title{font-size:17px;font-weight:700;margin:0 0 20px}
+.mfield{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+.mfield>label{font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.foto-prev{width:72px;height:72px;border-radius:10px;object-fit:cover;border:1px solid var(--border);display:none;margin-top:6px}
+.tog-row{display:flex;align-items:center;gap:10px}
+
+/* ── Botão editar por linha ── */
+.btn-edit{border:none;background:none;cursor:pointer;color:var(--muted-fg);padding:4px 7px;border-radius:6px;font-size:14px;line-height:1;opacity:0;transition:background .15s,opacity .15s}
+tr:hover .btn-edit{opacity:.65}
+.btn-edit:hover{opacity:1;background:var(--muted);color:var(--primary)}
+
+/* ── Lista de grupos no modal ── */
+.grupo-item{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:8px;background:var(--muted);gap:8px;font-size:14px}
+.grupo-item span{flex:1;font-weight:500}
+.btn-del-grupo{border:none;background:none;cursor:pointer;color:var(--muted-fg);font-size:15px;line-height:1;padding:2px 6px;border-radius:5px;transition:background .15s,color .15s;flex-shrink:0}
+.btn-del-grupo:hover{background:#fee2e2;color:#dc2626}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="page-head">
+    <div><h1>Cadastro de EPIs</h1><p>Equipamentos catalogados (dbo.EPI — Azure SQL Server)</p></div>
+    <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">
+      <select class="select" id="f-grupo" style="width:auto" onchange="applyFilters()"><option value="">Todos os grupos</option></select>
+      <select class="select" id="f-status" style="width:auto" onchange="applyFilters()">
+        <option value="">Todos</option><option value="1">Ativo</option><option value="0">Inativo</option>
+      </select>
+      <button class="btn ghost" onclick="openGruposModal()" style="gap:6px">⚙ Grupos</button>
+      <button class="btn" onclick="openModal()">+ Adicionar EPI</button>
+    </div>
+  </div>
+
+  <div id="alerta-ca" style="display:none;margin-bottom:16px;padding:.9rem 1.1rem;border-radius:10px;background:#fff8e1;border:1px solid #f59e0b;color:#92400e;gap:.7rem;align-items:flex-start">
+    ⚠ <span id="alerta-ca-msg"></span>
+  </div>
+
+  <div class="card">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
+      <input class="input" id="search" placeholder="🔍  Buscar por descrição ou CA…" style="max-width:400px" oninput="applyFilters()">
+    </div>
+    <table id="epis-table">
+      <thead>
+        <tr>
+          <th class="sh" style="width:72px"    onclick="sortBy('CODIGO')">Código <span class="si" id="si-CODIGO"><svg viewBox="0 0 10 6"><path d="M5 0L10 6H0z" fill="currentColor"/></svg><svg viewBox="0 0 10 6"><path d="M5 6L0 0H10z" fill="currentColor"/></svg></span></th>
+          <th class="sh"                        onclick="sortBy('DESCRICAO')">Descrição <span class="si" id="si-DESCRICAO"><svg viewBox="0 0 10 6"><path d="M5 0L10 6H0z" fill="currentColor"/></svg><svg viewBox="0 0 10 6"><path d="M5 6L0 0H10z" fill="currentColor"/></svg></span></th>
+          <th class="sh" style="width:180px"   onclick="sortBy('NOME_GRUPO')">Grupo <span class="si" id="si-NOME_GRUPO"><svg viewBox="0 0 10 6"><path d="M5 0L10 6H0z" fill="currentColor"/></svg><svg viewBox="0 0 10 6"><path d="M5 6L0 0H10z" fill="currentColor"/></svg></span></th>
+          <th class="sh" style="width:80px"    onclick="sortBy('CA')">CA <span class="si" id="si-CA"><svg viewBox="0 0 10 6"><path d="M5 0L10 6H0z" fill="currentColor"/></svg><svg viewBox="0 0 10 6"><path d="M5 6L0 0H10z" fill="currentColor"/></svg></span></th>
+          <th class="sh" style="width:130px"   onclick="sortBy('CA_VALIDADE')">Validade CA <span class="si" id="si-CA_VALIDADE"><svg viewBox="0 0 10 6"><path d="M5 0L10 6H0z" fill="currentColor"/></svg><svg viewBox="0 0 10 6"><path d="M5 6L0 0H10z" fill="currentColor"/></svg></span></th>
+          <th style="width:68px;text-align:center">Status</th>
+          <th style="width:48px"></th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        <tr><td colspan="7" style="text-align:center;color:var(--muted-fg);padding:32px">Carregando…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── Modal Grupos ── -->
+<div class="modal-bg hidden" id="modal-grupos">
+  <div class="modal-box" style="max-width:480px">
+    <p class="modal-title">Grupos de EPI</p>
+    <div id="grupos-list" style="display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto;margin-bottom:16px;padding-right:4px">
+      <div style="text-align:center;color:var(--muted-fg);padding:16px">Carregando…</div>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:0 0 16px">
+    <label style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted-fg);display:block;margin-bottom:6px">Novo grupo</label>
+    <div style="display:flex;gap:8px">
+      <input class="input" id="g-nome" placeholder="Ex: Proteção Auditiva" style="flex:1" onkeydown="if(event.key==='Enter') addGrupo()">
+      <button class="btn" id="btn-add-grupo" onclick="addGrupo()">Adicionar</button>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:16px">
+      <button class="btn ghost" onclick="closeGruposModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Adicionar EPI ── -->
+<div class="modal-bg hidden" id="modal-add">
+  <div class="modal-box">
+    <p class="modal-title">Adicionar EPI</p>
+
+    <div class="mfield">
+      <label>Descrição *</label>
+      <input class="input" id="m-desc" placeholder="Ex: Luva de raspa">
+    </div>
+    <div class="mfield">
+      <label>Grupo *</label>
+      <select class="select" id="m-grupo"><option value="">Selecione o grupo…</option></select>
+    </div>
+    <div class="grid2">
+      <div class="mfield">
+        <label>CA</label>
+        <input class="input" id="m-ca" type="number" min="0" placeholder="Ex: 45678">
+      </div>
+      <div class="mfield">
+        <label>Validade do CA</label>
+        <input class="input" id="m-ca-val" type="date">
+      </div>
+    </div>
+    <div class="mfield">
+      <label>Foto do EPI <span style="font-weight:400;text-transform:none;letter-spacing:0">(jpeg / jpg / png)</span></label>
+      <input type="file" id="m-foto" accept=".jpeg,.jpg,.png" style="font-size:13px" onchange="previewFoto(this)">
+      <img id="m-foto-prev" class="foto-prev" alt="Preview">
+    </div>
+    <div class="mfield">
+      <label>Status</label>
+      <div class="tog-row">
+        <label class="tog">
+          <input type="checkbox" id="m-ativo" checked onchange="syncLabel()">
+          <span class="tog-sl"></span>
+        </label>
+        <span id="m-ativo-lbl" style="color:var(--primary);font-size:13px;font-weight:600">Ativo</span>
+      </div>
+    </div>
+    <div class="mfield">
+      <label>Criado por</label>
+      <input class="input" id="m-criador" readonly style="background:var(--muted);cursor:default;color:var(--muted-fg)">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+      <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn" id="btn-salvar" onclick="salvarEPI()">Salvar EPI</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Editar EPI ── -->
+<div class="modal-bg hidden" id="modal-edit">
+  <div class="modal-box">
+    <p class="modal-title">Editar EPI</p>
+    <div class="mfield">
+      <label>Descrição *</label>
+      <input class="input" id="e-desc" placeholder="Ex: Luva de raspa">
+    </div>
+    <div class="mfield">
+      <label>Grupo *</label>
+      <select class="select" id="e-grupo"><option value="">Selecione o grupo…</option></select>
+    </div>
+    <div class="grid2">
+      <div class="mfield">
+        <label>CA</label>
+        <input class="input" id="e-ca" type="number" min="0" placeholder="Ex: 45678">
+      </div>
+      <div class="mfield">
+        <label>Validade do CA</label>
+        <input class="input" id="e-ca-val" type="date">
+      </div>
+    </div>
+    <div class="mfield">
+      <label>Estoque Mínimo</label>
+      <input class="input" id="e-minimo" type="number" min="0" placeholder="0" style="width:120px">
+    </div>
+    <div class="mfield">
+      <label>Foto do EPI <span style="font-weight:400;text-transform:none;letter-spacing:0">(jpeg/jpg/png — em branco = manter atual)</span></label>
+      <input type="file" id="e-foto" accept=".jpeg,.jpg,.png" style="font-size:13px" onchange="previewEditFoto(this)">
+      <img id="e-foto-prev" class="foto-prev" alt="Preview">
+    </div>
+    <div class="mfield">
+      <label>Status</label>
+      <div class="tog-row">
+        <label class="tog">
+          <input type="checkbox" id="e-ativo" checked onchange="syncEditLabel()">
+          <span class="tog-sl"></span>
+        </label>
+        <span id="e-ativo-lbl" style="color:var(--primary);font-size:13px;font-weight:600">Ativo</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+      <button class="btn ghost" onclick="closeEditModal()">Cancelar</button>
+      <button class="btn" id="btn-editar" onclick="salvarEdicaoEPI()">Salvar alterações</button>
+    </div>
+  </div>
+</div>
+
+<script defer src="js/config.js"></script>
+<script defer src="js/auth.js"></script>
+<script defer src="js/utils.js"></script>
+<script defer src="js/_layout.js"></script>
+<script>
+  let allRows  = [];
+  let gruposDB = [];
+  let sortCol  = 'CODIGO';
+  let sortDir  = 1;
+  let _editId  = null;
+
+  // ── Bootstrap ───────────────────────────────────────────
+  document.addEventListener('authReady', async function(e){
+    const user = e.detail;
+    if(user) document.getElementById('m-criador').value = user.nome || user.email || '';
+
+    const [r1, r2] = await Promise.all([
+      fetch('api/epis.php'),
+      fetch('api/grupos.php?tab=grupos')
+    ]);
+    allRows  = r1.ok ? await r1.json() : [];
+    gruposDB = r2.ok ? await r2.json() : [];
+
+    // Filtro grupo
+    const grupos = [...new Set(allRows.map(r=>r.NOME_GRUPO).filter(Boolean))].sort();
+    const fSel = document.getElementById('f-grupo');
+    grupos.forEach(g=>{ const o=document.createElement('option'); o.value=g; o.textContent=g; fSel.appendChild(o); });
+
+    // Dropdown modal
+    const mSel = document.getElementById('m-grupo');
+    gruposDB.forEach(g=>{ const o=document.createElement('option'); o.value=g.ID; o.textContent=g.NOME_GRUPO; mSel.appendChild(o); });
+
+    // Dropdown modal edição
+    const eSel = document.getElementById('e-grupo');
+    gruposDB.forEach(g=>{ const o=document.createElement('option'); o.value=g.ID; o.textContent=g.NOME_GRUPO; eSel.appendChild(o); });
+
+    checkAlertaCA();
+    updateSortIcons();
+    applyFilters();
+  });
+
+  // ── Sort ────────────────────────────────────────────────
+  const SORT_COLS = ['CODIGO','DESCRICAO','NOME_GRUPO','CA','CA_VALIDADE'];
+
+  function updateSortIcons(){
+    SORT_COLS.forEach(col=>{
+      const el = document.getElementById('si-'+col);
+      if(!el) return;
+      el.className = 'si' + (col===sortCol ? (sortDir===1?' asc':' desc') : '');
+    });
+  }
+
+  function sortBy(col){
+    if(sortCol===col) sortDir=-sortDir;
+    else { sortCol=col; sortDir=1; }
+    updateSortIcons();
+    applyFilters();
+  }
+
+  // ── Alerta CA ───────────────────────────────────────────
+  function in30(){ const d=new Date(); d.setDate(d.getDate()+30); return d.toISOString().slice(0,10); }
+
+  function checkAlertaCA(){
+    const today=new Date().toISOString().slice(0,10), lim=in30();
+    const at=allRows.filter(r=>r.CA_VALIDADE&&r.CA_VALIDADE.slice(0,10)>=today&&r.CA_VALIDADE.slice(0,10)<=lim);
+    const el=document.getElementById('alerta-ca');
+    if(at.length){
+      document.getElementById('alerta-ca-msg').innerHTML=
+        '<b>'+at.length+' EPI'+(at.length>1?'s':'')+'</b> com CA vencendo nos próximos 30 dias: '+
+        at.map(r=>'<b>'+r.DESCRICAO+'</b> (CA '+r.CA+')').join(' · ');
+      el.style.display='flex';
+    } else { el.style.display='none'; }
+  }
+
+  // ── Filtros & Render ────────────────────────────────────
+  function applyFilters(){
+    const q      = document.getElementById('search').value.toLowerCase();
+    const grupo  = document.getElementById('f-grupo').value;
+    const status = document.getElementById('f-status').value;
+    let rows = allRows.filter(r=>{
+      if(q && !r.DESCRICAO?.toLowerCase().includes(q) && !String(r.CA??'').includes(q)) return false;
+      if(grupo && r.NOME_GRUPO !== grupo) return false;
+      if(status !== '' && String(r.ATIVO?1:0) !== status) return false;
+      return true;
+    });
+    rows.sort((a,b)=>{
+      let av=a[sortCol], bv=b[sortCol];
+      if(av==null) av=''; if(bv==null) bv='';
+      if(typeof av==='number'||typeof bv==='number') return (Number(av||0)-Number(bv||0))*sortDir;
+      return String(av).localeCompare(String(bv),'pt-BR')*sortDir;
+    });
+    checkAlertaCA();
+    render(rows);
+  }
+
+  function render(rows){
+    const tbody  = document.getElementById('tbody');
+    const today  = new Date().toISOString().slice(0,10), lim=in30();
+    if(!rows.length){
+      tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--muted-fg);padding:32px">Nenhum EPI encontrado.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(r=>{
+      const val    = r.CA_VALIDADE ? r.CA_VALIDADE.slice(0,10) : null;
+      const venc   = val && val < today;
+      const aVenc  = val && !venc && val <= lim;
+      const valLbl = val ? formatDate(val) : '—';
+      const badge  = venc  ? ' <span class="badge red"   style="font-size:10px;padding:2px 6px">Vencido</span>'
+                   : aVenc ? ' <span class="badge amber" style="font-size:10px;padding:2px 6px">⚠ Vence</span>'
+                   : '';
+      const grupo  = r.NOME_GRUPO
+        ? `<span style="color:var(--primary);font-weight:500">${r.NOME_GRUPO}</span>`
+        : `<span style="color:var(--muted-fg)">—</span>`;
+      const chk   = r.ATIVO ? 'checked' : '';
+      const title = r.ATIVO ? 'Ativo — clique para inativar' : 'Inativo — clique para ativar';
+      return `<tr data-id="${r.ID}">
+        <td style="font-family:monospace;color:var(--muted-fg)">${r.CODIGO??r.ID}</td>
+        <td>${r.DESCRICAO}</td>
+        <td>${grupo}</td>
+        <td style="font-family:monospace">${r.CA||'—'}</td>
+        <td>${valLbl}${badge}</td>
+        <td style="text-align:center">
+          <label class="tog" title="${title}">
+            <input type="checkbox" ${chk} onchange="toggleAtivo(${r.ID},this)">
+            <span class="tog-sl"></span>
+          </label>
+        </td>
+        <td style="text-align:center">
+          <button class="btn-edit" onclick="openEditModal(${r.ID})" title="Editar EPI">✏</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ── Modal editar EPI ───────────────────────────────────
+  function openEditModal(id){
+    const row = allRows.find(r=>r.ID===id);
+    if(!row) return;
+    _editId = id;
+    document.getElementById('e-desc').value    = row.DESCRICAO||'';
+    document.getElementById('e-grupo').value   = row.GRUPO_ID||'';
+    document.getElementById('e-ca').value      = row.CA||'';
+    document.getElementById('e-ca-val').value  = row.CA_VALIDADE ? row.CA_VALIDADE.slice(0,10) : '';
+    document.getElementById('e-minimo').value  = row.ESTOQUE_MINIMO??0;
+    document.getElementById('e-ativo').checked = !!row.ATIVO;
+    syncEditLabel();
+    const prevImg = document.getElementById('e-foto-prev');
+    if(row.FOTO_URL){ prevImg.src=row.FOTO_URL; prevImg.style.display='block'; }
+    else { prevImg.style.display='none'; }
+    document.getElementById('e-foto').value = '';
+    document.getElementById('modal-edit').classList.remove('hidden');
+  }
+
+  function closeEditModal(){
+    document.getElementById('modal-edit').classList.add('hidden');
+    _editId = null;
+  }
+
+  function syncEditLabel(){
+    const on  = document.getElementById('e-ativo').checked;
+    const lbl = document.getElementById('e-ativo-lbl');
+    lbl.textContent = on ? 'Ativo' : 'Inativo';
+    lbl.style.color = on ? 'var(--primary)' : 'var(--muted-fg)';
+  }
+
+  function previewEditFoto(input){
+    const img = document.getElementById('e-foto-prev');
+    if(input.files[0]){ img.src=URL.createObjectURL(input.files[0]); img.style.display='block'; }
+    else { img.style.display='none'; }
+  }
+
+  async function salvarEdicaoEPI(){
+    const descricao = document.getElementById('e-desc').value.trim();
+    if(!descricao){ toast('Descrição é obrigatória','error'); return; }
+    const grupoId = document.getElementById('e-grupo').value;
+    if(!grupoId){ toast('Selecione o grupo','error'); return; }
+    const btn = document.getElementById('btn-editar');
+    btn.disabled=true; btn.textContent='Salvando…';
+    try {
+      const fd = new FormData();
+      fd.append('id',          _editId);
+      fd.append('descricao',   descricao);
+      fd.append('grupo_id',    grupoId);
+      fd.append('ca',          document.getElementById('e-ca').value);
+      fd.append('ca_validade', document.getElementById('e-ca-val').value);
+      fd.append('minimo',      document.getElementById('e-minimo').value);
+      fd.append('ativo',       document.getElementById('e-ativo').checked ? '1' : '0');
+      const fotoFile = document.getElementById('e-foto').files[0];
+      if(fotoFile) fd.append('foto', fotoFile);
+      const res  = await fetch('api/epis.php?action=update', {method:'POST', body:fd});
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error||'Erro ao salvar');
+      toast('EPI atualizado!');
+      closeEditModal();
+      const r2 = await fetch('api/epis.php');
+      allRows = r2.ok ? await r2.json() : allRows;
+      checkAlertaCA();
+      applyFilters();
+    } catch(err){
+      toast(err.message,'error');
+    } finally {
+      btn.disabled=false; btn.textContent='Salvar alterações';
+    }
+  }
+
+  // ── Toggle Ativo ──────────────────────────────────────
+  async function toggleAtivo(id, cb){
+    const novoAtivo = cb.checked;
+    cb.disabled = true;
+    try {
+      const res = await fetch('api/epis.php', {
+        method:'PATCH',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ id, ativo: novoAtivo })
+      });
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error || 'Erro');
+      const row = allRows.find(r=>r.ID===id);
+      if(row) row.ATIVO = novoAtivo;
+      toast(novoAtivo ? 'EPI ativado' : 'EPI inativado');
+    } catch(err){
+      toast(err.message, 'error');
+      cb.checked = !novoAtivo;
+    } finally {
+      cb.disabled = false;
+    }
+  }
+
+  // ── Modal ───────────────────────────────────────────────
+  function openModal(){
+    document.getElementById('modal-add').classList.remove('hidden');
+  }
+  function closeModal(){
+    document.getElementById('modal-add').classList.add('hidden');
+    ['m-desc','m-ca','m-ca-val'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('m-grupo').value = '';
+    document.getElementById('m-foto').value = '';
+    document.getElementById('m-foto-prev').style.display = 'none';
+    document.getElementById('m-ativo').checked = true;
+    syncLabel();
+  }
+  document.getElementById('modal-add').addEventListener('click', e=>{
+    if(e.target===document.getElementById('modal-add')) closeModal();
+  });
+  document.getElementById('modal-edit').addEventListener('click', e=>{
+    if(e.target===document.getElementById('modal-edit')) closeEditModal();
+  });
+  document.getElementById('modal-grupos').addEventListener('click', e=>{
+    if(e.target===document.getElementById('modal-grupos')) closeGruposModal();
+  });
+
+  // ── Gerenciar Grupos ────────────────────────────────────
+  function openGruposModal(){
+    document.getElementById('modal-grupos').classList.remove('hidden');
+    document.getElementById('g-nome').value = '';
+    renderGruposList();
+  }
+  function closeGruposModal(){
+    document.getElementById('modal-grupos').classList.add('hidden');
+  }
+  function renderGruposList(){
+    const list = document.getElementById('grupos-list');
+    if(!gruposDB.length){
+      list.innerHTML = '<div style="text-align:center;color:var(--muted-fg);padding:16px">Nenhum grupo cadastrado.</div>';
+      return;
+    }
+    list.innerHTML = gruposDB
+      .slice()
+      .sort((a,b)=>a.NOME_GRUPO.localeCompare(b.NOME_GRUPO))
+      .map(g=>`
+        <div class="grupo-item">
+          <span>${g.NOME_GRUPO}</span>
+          <button class="btn-del-grupo" onclick="deleteGrupo(${g.ID})" title="Excluir grupo">✕</button>
+        </div>`)
+      .join('');
+  }
+  async function addGrupo(){
+    const nome = document.getElementById('g-nome').value.trim();
+    if(!nome){ toast('Digite um nome para o grupo','error'); return; }
+    const btn = document.getElementById('btn-add-grupo');
+    btn.disabled=true; btn.textContent='Adicionando…';
+    try {
+      const res  = await fetch('api/grupos.php?tab=grupos', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({nome})
+      });
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error||'Erro ao adicionar');
+      document.getElementById('g-nome').value = '';
+      await reloadGrupos();
+      toast('Grupo adicionado!');
+    } catch(err){ toast(err.message,'error'); }
+    finally { btn.disabled=false; btn.textContent='Adicionar'; }
+  }
+  async function deleteGrupo(id){
+    if(!confirm('Excluir este grupo? Os EPIs vinculados ficarão sem grupo.')) return;
+    try {
+      const res  = await fetch('api/grupos.php?tab=grupos', {
+        method:'DELETE',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({id})
+      });
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error||'Erro ao excluir');
+      await reloadGrupos();
+      toast('Grupo excluído!');
+    } catch(err){ toast(err.message,'error'); }
+  }
+  async function reloadGrupos(){
+    const res = await fetch('api/grupos.php?tab=grupos');
+    if(!res.ok) return;
+    gruposDB = await res.json();
+    // Atualiza dropdown m-grupo
+    const mSel = document.getElementById('m-grupo');
+    const mVal = mSel.value;
+    mSel.innerHTML = '<option value="">Selecione o grupo…</option>';
+    gruposDB.forEach(g=>{ const o=document.createElement('option'); o.value=g.ID; o.textContent=g.NOME_GRUPO; mSel.appendChild(o); });
+    mSel.value = mVal;
+    // Atualiza dropdown e-grupo
+    const eSel = document.getElementById('e-grupo');
+    const eVal = eSel.value;
+    eSel.innerHTML = '<option value="">Selecione o grupo…</option>';
+    gruposDB.forEach(g=>{ const o=document.createElement('option'); o.value=g.ID; o.textContent=g.NOME_GRUPO; eSel.appendChild(o); });
+    eSel.value = eVal;
+    // Atualiza filtro
+    const fSel = document.getElementById('f-grupo');
+    const fVal = fSel.value;
+    fSel.innerHTML = '<option value="">Todos os grupos</option>';
+    gruposDB.forEach(g=>{ const o=document.createElement('option'); o.value=g.ID; o.textContent=g.NOME_GRUPO; fSel.appendChild(o); });
+    fSel.value = fVal;
+    renderGruposList();
+  }
+  function syncLabel(){
+    const on = document.getElementById('m-ativo').checked;
+    const lbl = document.getElementById('m-ativo-lbl');
+    lbl.textContent = on ? 'Ativo' : 'Inativo';
+    lbl.style.color = on ? 'var(--primary)' : 'var(--muted-fg)';
+  }
+  function previewFoto(input){
+    const img = document.getElementById('m-foto-prev');
+    if(input.files[0]){ img.src=URL.createObjectURL(input.files[0]); img.style.display='block'; }
+    else { img.style.display='none'; }
+  }
+
+  // ── Salvar EPI ──────────────────────────────────────────
+  async function salvarEPI(){
+    const descricao = document.getElementById('m-desc').value.trim();
+    if(!descricao){ toast('Descrição é obrigatória','error'); return; }
+    const grupoId = document.getElementById('m-grupo').value;
+    if(!grupoId){ toast('Selecione o grupo','error'); return; }
+
+    const btn = document.getElementById('btn-salvar');
+    btn.disabled=true; btn.textContent='Salvando…';
+    try {
+      const fd = new FormData();
+      fd.append('descricao', descricao);
+      fd.append('grupo_id',  grupoId);
+      fd.append('ca',        document.getElementById('m-ca').value);
+      fd.append('ca_validade', document.getElementById('m-ca-val').value);
+      fd.append('ativo',     document.getElementById('m-ativo').checked ? '1' : '0');
+      fd.append('criado_por', document.getElementById('m-criador').value);
+      const fotoFile = document.getElementById('m-foto').files[0];
+      if(fotoFile) fd.append('foto', fotoFile);
+
+      const res  = await fetch('api/epis.php', { method:'POST', body: fd });
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error || 'Erro ao salvar');
+
+      toast('EPI cadastrado com sucesso!');
+      closeModal();
+      const r2 = await fetch('api/epis.php');
+      allRows = r2.ok ? await r2.json() : allRows;
+      applyFilters();
+    } catch(err){
+      toast(err.message, 'error');
+    } finally {
+      btn.disabled=false; btn.textContent='Salvar EPI';
+    }
+  }
+</script>
+</body>
+</html>

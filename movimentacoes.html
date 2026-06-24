@@ -1,0 +1,1926 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Movimentações — EPI Manager</title>
+<link rel="stylesheet" href="css/styles.css">
+<style>
+/* Badges de tipo */
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 9px;border-radius:99px}
+.badge.entrada    {background:#dcfce7;color:#15803d}
+.badge.saida      {background:#fef9c3;color:#a16207}
+.badge.entrega-dir{background:#e0f2fe;color:#0369a1}
+.badge.devolucao  {background:#dbeafe;color:#1d4ed8}
+.badge.ajuste     {background:#f3e8ff;color:#7c3aed}
+.badge.transfer   {background:#ffedd5;color:#c2410c}
+
+/* Filtros */
+.filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+
+/* Modal shell */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.modal-bg.hidden{display:none}
+.modal-box{background:#fff;border-radius:16px;width:100%;max-width:1060px;min-height:80vh;max-height:92vh;box-shadow:0 28px 90px rgba(0,0,0,.28);display:flex;flex-direction:column;overflow:hidden}
+
+/* Modal header */
+.modal-hdr{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.modal-hdr h3{margin:0;font-size:16px;font-weight:700;letter-spacing:-.01em}
+.modal-hdr .close-btn{background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:8px;color:var(--muted-fg);font-size:18px;line-height:1;transition:background .15s}
+.modal-hdr .close-btn:hover{background:#f1f5f9;color:#0f172a}
+
+/* Modal body: two columns */
+.modal-body{display:flex;flex:1;overflow:hidden}
+
+/* Left panel — itens */
+.panel-itens{width:420px;flex-shrink:0;background:#f8fafc;border-right:1px solid var(--border);padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:0}
+.panel-itens .panel-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-fg);margin-bottom:12px}
+
+/* Item card */
+.item-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:7px;margin-bottom:8px;transition:box-shadow .15s}
+.item-card:hover{box-shadow:0 2px 10px rgba(0,0,0,.07)}
+.item-card-controls{display:flex;gap:6px;align-items:center}
+.item-card-controls .input{width:68px;flex-shrink:0;text-align:center}
+.item-card-controls .unit-lbl{font-size:11px;color:var(--muted-fg);flex:1}
+.item-stock-warning{font-size:11px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:6px 8px;line-height:1.3}
+.item-cost-row{display:flex;gap:6px;align-items:center;margin-top:2px}
+.item-cost-row .input{flex:1;font-size:12px}
+.item-cost-row .unit-lbl{font-size:11px;color:var(--muted-fg);white-space:nowrap}
+.custo-total-val{font-size:22px;font-weight:700;color:var(--primary);letter-spacing:-.01em;padding:4px 0}
+
+/* Searchable combobox (EPI picker) */
+.epi-combo{position:relative;width:100%}
+.epi-combo-trigger{width:100%;display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;background:#fff;font-size:13px;cursor:pointer;text-align:left;color:inherit;gap:6px;box-sizing:border-box;transition:border-color .15s;white-space:nowrap;overflow:hidden}
+.epi-combo-trigger:focus,.epi-combo-trigger.open{border-color:var(--primary);outline:none;box-shadow:0 0 0 3px rgba(22,163,74,.15)}
+.epi-combo-trigger .combo-label{flex:1;overflow:hidden;text-overflow:ellipsis}
+.epi-combo-trigger .combo-placeholder{color:var(--muted-fg);flex:1}
+.epi-combo-trigger .combo-chevron{flex-shrink:0;transition:transform .2s}
+.epi-combo-trigger.open .combo-chevron{transform:rotate(180deg)}
+.epi-combo-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1.5px solid var(--primary);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.14);z-index:9999;overflow:hidden;display:none}
+.epi-combo-dropdown.open{display:block}
+.epi-combo-search{width:100%;padding:9px 11px;border:none;border-bottom:1px solid var(--border);font-size:13px;outline:none;box-sizing:border-box}
+.epi-combo-list{max-height:220px;overflow-y:auto}
+.epi-combo-item{padding:8px 12px;font-size:13px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.epi-combo-item:hover,.epi-combo-item.selected{background:oklch(0.97 0.02 140)}
+.epi-combo-empty{padding:10px 12px;font-size:13px;color:var(--muted-fg);text-align:center}
+
+/* Add item btn */
+.btn-add-item{display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:500;color:var(--primary);background:none;border:1.5px dashed var(--primary);border-radius:9px;padding:8px 0;cursor:pointer;width:100%;transition:background .15s;margin-top:2px}
+.btn-add-item:hover{background:#eff6ff}
+
+/* Right panel — detalhes */
+.panel-detail{flex:1;padding:22px 26px;overflow-y:auto}
+
+/* Field */
+.mfield{margin-bottom:14px}
+.mfield label{display:block;font-size:11px;font-weight:700;color:var(--muted-fg);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em}
+.mrow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* Section divider (right panel) */
+.sec-hdr{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-fg);margin:18px 0 10px;padding-bottom:7px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.sec-hdr:first-child{margin-top:0}
+.sec-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.sec-dot.orig{background:#6366f1}
+.sec-dot.dest{background:#f97316}
+
+/* Modal footer */
+.modal-ftr{padding:14px 24px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0}
+
+/* Icon btn */
+.icon-btn{background:none;border:none;cursor:pointer;padding:4px;border-radius:6px;color:var(--muted-fg);line-height:1}
+.icon-btn.del:hover{background:#fee2e2;color:#dc2626}
+
+/* Table detail row */
+.detail-row{background:#f8fafc}
+.detail-row td{padding:10px 20px 14px!important}
+.row-clickable{cursor:pointer;user-select:none}
+.row-clickable:hover td{background:#f5f9f5}
+.row-expand-icon{font-size:10px;color:var(--muted-fg);display:inline-block;margin-right:4px}
+.detail-itens-table{width:100%;border-collapse:collapse}
+.detail-itens-table th{text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted-fg);padding:4px 8px;border-bottom:1.5px solid var(--border)}
+.detail-itens-table td{padding:6px 8px;border-bottom:1px solid #f0f0f0;font-size:12px}
+.detail-itens-table tr:last-child td{border-bottom:none}
+.btn-attach{
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:.01em;
+  padding:7px 14px;
+  border:1.5px solid #b8d9c3;
+  border-radius:10px;
+  background:linear-gradient(180deg,#ffffff 0%,#f0fbf4 100%);
+  cursor:pointer;
+  color:#166534;
+  white-space:nowrap;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  box-shadow:0 1px 0 rgba(22,101,52,.08);
+  transition:transform .12s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease, color .15s ease;
+}
+.btn-attach:hover{
+  border-color:#16a34a;
+  background:linear-gradient(180deg,#f6fff9 0%,#e8f8ee 100%);
+  color:#15803d;
+  box-shadow:0 4px 14px rgba(22,163,74,.16);
+}
+.btn-attach:focus-visible{
+  outline:none;
+  border-color:#16a34a;
+  box-shadow:0 0 0 3px rgba(22,163,74,.2), 0 4px 14px rgba(22,163,74,.12);
+}
+.btn-attach:active{
+  transform:translateY(1px);
+  box-shadow:0 2px 8px rgba(22,163,74,.14);
+}
+.attach-name{font-size:11px;color:var(--primary);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Dev item cards (EPIs em posse para devolução) */
+.dev-card{background:#fffbeb;border-color:#fcd34d}
+.dev-card-label{font-size:13px;font-weight:600;color:var(--fg);line-height:1.3}
+.dev-card-ca{font-size:11px;color:var(--muted-fg);margin-left:4px}
+.dev-card-date{font-size:11px;color:var(--muted-fg);margin-top:3px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="page-head">
+    <div><h1>Movimentações</h1><p>Entradas, saídas, devoluções, ajustes e transferências</p></div>
+    <button class="btn accent" onclick="openModal()">+ Nova movimentação</button>
+  </div>
+
+  <!-- Filtros -->
+  <div class="filters">
+    <select class="select" id="f-tipo" onchange="loadMovs()" style="width:auto">
+      <option value="">Todos os tipos</option>
+      <option>Entrada</option>
+      <option>Saída</option>
+      <option>Entrega Direta</option>
+      <option>Devolução</option>
+      <option>Ajuste</option>
+      <option>Transferência</option>
+    </select>
+    <input class="input" id="f-ini" type="date" onchange="loadMovs()" title="Data inicial">
+    <input class="input" id="f-fim" type="date" onchange="loadMovs()" title="Data final">
+    <button class="btn outline" onclick="clearFilters()">Limpar</button>
+  </div>
+
+  <div class="card" style="padding:0;overflow:hidden">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:130px">Data</th>
+          <th style="width:110px">Tipo</th>
+          <th>EPIs</th>
+          <th>Origem</th>
+          <th>Destino</th>
+          <th>Responsável</th>
+          <th style="width:42px"></th>
+        </tr>
+      </thead>
+      <tbody id="tbody-movs">
+        <tr><td colspan="7" style="text-align:center;color:var(--muted-fg);padding:36px">Carregando...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal: Nova movimentação -->
+<div class="modal-bg hidden" id="modal-bg" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+
+    <!-- Cabeçalho -->
+    <div class="modal-hdr">
+      <h3>Nova movimentação</h3>
+      <button class="close-btn" onclick="closeModal()" title="Fechar">&#x2715;</button>
+    </div>
+
+    <!-- Corpo em duas colunas -->
+    <div class="modal-body">
+
+      <!-- ░░ Painel esquerdo: Itens ░░ -->
+      <div class="panel-itens">
+        <div class="panel-title">Itens da movimentação</div>
+        <div id="itens-list"></div>
+        <button class="btn-add-item" id="btn-add-item" onclick="addItemRow()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Adicionar EPI
+        </button>
+      </div>
+
+      <!-- ░░ Painel direito: Detalhes ░░ -->
+      <div class="panel-detail">
+
+        <div class="mfield">
+          <label>Tipo *</label>
+          <select class="select" id="m-tipo" onchange="onTipoChange()" style="width:100%">
+            <option value="">Selecione...</option>
+            <option value="Entrada">Entrada</option>
+            <option value="Saída">Saída</option>
+            <option value="Devolução">Devolução</option>
+            <option value="Ajuste">Ajuste</option>
+            <option value="Transferência">Transferência</option>
+          </select>
+        </div>
+
+        <!-- ── Campos exclusivos de Entrada ── -->
+        <div id="section-entrada" style="display:none">
+          <div class="sec-hdr"><span class="sec-dot" style="background:#16a34a"></span>Destino</div>
+          <div class="mfield">
+            <label>Empresa *</label>
+            <select class="select" id="m-entrada-empresa" style="width:100%">
+              <option value="">Selecione...</option>
+            </select>
+          </div>
+          <div class="mrow">
+            <div class="mfield">
+              <label>Fornecedor</label>
+              <select class="select" id="m-entrada-fornecedor" style="width:100%">
+                <option value="">Opcional</option>
+              </select>
+            </div>
+            <div class="mfield">
+              <label>Nota fiscal</label>
+              <input class="input" type="text" id="m-entrada-nota" placeholder="" style="width:100%">
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Colaborador devolvendo (só Devolução) — primeiro ── -->
+        <div id="section-devolucao-colab" style="display:none">
+          <div class="sec-hdr"><span class="sec-dot" style="background:#f59e0b"></span>Colaborador</div>
+          <div class="mrow" style="align-items:flex-end;gap:10px">
+            <div class="mfield" style="flex:0 0 170px">
+              <label>Equipe</label>
+              <select class="select" id="m-devol-equipe" onchange="onDevEquipeChange()" style="width:100%">
+                <option value="">Todas as equipes</option>
+              </select>
+            </div>
+            <div class="mfield" style="flex:1">
+              <label>Colaborador que está devolvendo *</label>
+              <div class="epi-combo" id="devs-combo">
+                <button type="button" class="epi-combo-trigger" id="devs-combo-btn" data-value=""
+                        onclick="openCombo('devs-combo',event)">
+                  <span class="combo-placeholder">Selecione o colaborador...</span>
+                  <svg class="combo-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+                <div class="epi-combo-dropdown" id="devs-combo-drop">
+                  <input class="epi-combo-search" type="text" placeholder="Pesquisar colaborador..."
+                         oninput="filterDevsCombo(this)" onclick="event.stopPropagation()">
+                  <div class="epi-combo-list" id="devs-combo-list">
+                    <div class="epi-combo-empty">Carregando...</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Colaborador que recebe (Saída) ── -->
+        <div id="section-saida-colab" style="display:none">
+          <div class="sec-hdr"><span class="sec-dot" style="background:#f97316"></span>Destinatário</div>
+          <div class="mrow" style="align-items:flex-end;gap:10px">
+            <div class="mfield" style="flex:0 0 170px">
+              <label>Equipe</label>
+              <select class="select" id="m-saida-equipe" onchange="onSaidaEquipeChange()" style="width:100%">
+                <option value="">Todas as equipes</option>
+              </select>
+            </div>
+            <div class="mfield" style="flex:1">
+              <label>Colaborador que receberá os EPIs *</label>
+              <div class="epi-combo" id="saida-combo">
+                <button type="button" class="epi-combo-trigger" id="saida-combo-btn" data-value=""
+                        onclick="openCombo('saida-combo',event)">
+                  <span class="combo-placeholder">Selecione o colaborador...</span>
+                  <svg class="combo-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+                <div class="epi-combo-dropdown" id="saida-combo-drop">
+                  <input class="epi-combo-search" type="text" placeholder="Pesquisar colaborador..."
+                         oninput="filterSaidaCombo(this)" onclick="event.stopPropagation()">
+                  <div class="epi-combo-list" id="saida-combo-list">
+                    <div class="epi-combo-empty">Carregando...</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Origem (Saída / Devolução / Ajuste / Transferência / Entrega Direta) ── -->
+        <div id="section-origem" style="display:none">
+          <div class="sec-hdr"><span class="sec-dot orig"></span>Origem</div>
+          <div class="mfield">
+            <label>Empresa</label>
+            <select class="select" id="m-orig-empresa" onchange="onEmpresaChange('orig')" style="width:100%">
+              <option value="">Selecione...</option>
+            </select>
+          </div>
+          <div class="mrow" id="mrow-orig" style="display:none">
+            <div class="mfield">
+              <label>Unidade</label>
+              <select class="select" id="m-orig-unidade" onchange="onUnidadeChange('orig')" style="width:100%">
+                <option value="">Selecione...</option>
+              </select>
+            </div>
+            <div class="mfield" id="field-orig-subunidade" style="display:none">
+              <label>Subunidade</label>
+              <select class="select" id="m-orig-subunidade" onchange="loadEstoqueOrigem()" style="width:100%">
+                <option value="">Selecione...</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+
+        <div id="section-destino" style="display:none">
+          <div class="sec-hdr"><span class="sec-dot dest"></span>Destino</div>
+          <div class="mfield">
+            <label>Empresa</label>
+            <select class="select" id="m-dest-empresa" onchange="onEmpresaChange('dest')" style="width:100%">
+              <option value="">Selecione...</option>
+            </select>
+          </div>
+          <div class="mrow" id="mrow-dest" style="display:none">
+            <div class="mfield">
+              <label>Unidade</label>
+              <select class="select" id="m-dest-unidade" onchange="onUnidadeChange('dest')" style="width:100%">
+                <option value="">Selecione...</option>
+              </select>
+            </div>
+            <div class="mfield" id="field-dest-subunidade" style="display:none">
+              <label>Subunidade</label>
+              <select class="select" id="m-dest-subunidade" style="width:100%">
+                <option value="">Selecione...</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="mfield" style="margin-top:4px">
+          <label>Observa&#231;&#245;es</label>
+          <textarea class="input" id="m-obs" rows="3" style="width:100%;resize:vertical" placeholder="Opcional..."></textarea>
+        </div>
+
+        <!-- ── Transportador (só Transferência) ── -->
+        <div id="section-transportador" style="display:none">
+          <div class="sec-hdr" style="margin-top:14px">
+            <span class="sec-dot" style="background:#6366f1"></span>Transportador
+          </div>
+          <div class="mfield">
+            <label>Colaborador responsável pelo transporte</label>
+            <div class="epi-combo" id="transp-combo">
+              <button type="button" class="epi-combo-trigger" id="transp-combo-btn" data-value=""
+                      onclick="openCombo('transp-combo',event)">
+                <span class="combo-placeholder">Selecione o transportador...</span>
+                <svg class="combo-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+              <div class="epi-combo-dropdown" id="transp-combo-drop">
+                <input class="epi-combo-search" type="text" placeholder="Pesquisar colaborador..."
+                       oninput="filterTranspCombo(this)" onclick="event.stopPropagation()">
+                <div class="epi-combo-list" id="transp-combo-list">
+                  <div class="epi-combo-empty">Carregando...</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Solicitação vinculada removida: o vínculo com solicitação é opcional e não é mais exigido -->
+        <div class="mfield" style="margin-top:12px;display:none" id="field-custo-total">
+          <label>Custo total da nota</label>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:2px">
+            <div class="custo-total-val" id="custo-total-display">&mdash;</div>
+            <button type="button" class="btn-attach" onclick="document.getElementById('m-nf-file').click()">&#128206;&nbsp;Anexar NF</button>
+            <span class="attach-name" id="attach-name"></span>
+            <input type="file" id="m-nf-file" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="onFileSelect(this)">
+          </div>
+        </div>
+
+      </div><!-- /panel-detail -->
+    </div><!-- /modal-body -->
+
+    <div class="modal-ftr">
+      <button class="btn outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn accent" onclick="registrar()">Registrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Solicitar transferencia -->
+<div class="modal-bg hidden" id="transfer-modal-bg" onclick="if(event.target===this)closeTransferModal()">
+  <div class="modal-box" style="max-width:720px;min-height:auto">
+    <div class="modal-hdr">
+      <h3>Solicitar transferencia</h3>
+      <button class="close-btn" onclick="closeTransferModal()" title="Fechar">&#x2715;</button>
+    </div>
+    <div class="modal-body" style="display:block;padding:18px 24px">
+      <div class="mfield">
+        <label>EPI</label>
+        <input class="input" id="t-epi-label" type="text" readonly style="width:100%">
+        <input type="hidden" id="t-epi-id">
+      </div>
+      <div class="mrow">
+        <div class="mfield">
+          <label>Quantidade</label>
+          <input class="input" id="t-qty" type="number" min="1" value="1" style="width:100%">
+        </div>
+        <div class="mfield">
+          <label>Prioridade</label>
+          <select class="select" id="t-prio" style="width:100%">
+            <option value="Normal">Normal</option>
+            <option value="Urgente">Urgente</option>
+          </select>
+        </div>
+      </div>
+      <div class="mfield">
+        <label>Origem (opcional)</label>
+        <div class="mrow">
+          <select class="select" id="t-orig-empresa" onchange="onTransferEmpresaChange()" style="width:100%">
+            <option value="">Selecione...</option>
+          </select>
+          <select class="select" id="t-orig-unidade" onchange="onTransferUnidadeChange()" style="width:100%">
+            <option value="">Selecione...</option>
+          </select>
+        </div>
+        <div class="mrow" style="margin-top:8px">
+          <select class="select" id="t-orig-subunidade" style="width:100%">
+            <option value="">Selecione...</option>
+          </select>
+          <div></div>
+        </div>
+      </div>
+      <div class="mfield">
+        <label>Destino</label>
+        <div class="mrow">
+          <select class="select" id="t-dest-empresa" style="width:100%" disabled>
+            <option value="">Selecione...</option>
+          </select>
+          <select class="select" id="t-dest-unidade" style="width:100%" disabled>
+            <option value="">Selecione...</option>
+          </select>
+        </div>
+        <div class="mrow" style="margin-top:8px">
+          <select class="select" id="t-dest-subunidade" style="width:100%" disabled>
+            <option value="">Selecione...</option>
+          </select>
+          <div></div>
+        </div>
+      </div>
+      <div class="mfield">
+        <label>Observacao</label>
+        <textarea class="input" id="t-obs" rows="2" style="width:100%;resize:vertical" placeholder="Opcional..."></textarea>
+      </div>
+    </div>
+    <div class="modal-ftr">
+      <button class="btn outline" onclick="closeTransferModal()">Cancelar</button>
+      <button class="btn accent" onclick="submitTransferRequest()">Enviar solicitacao</button>
+    </div>
+  </div>
+</div>
+
+<script defer src="js/config.js"></script>
+<script defer src="js/auth.js"></script>
+<script defer src="js/utils.js"></script>
+<script defer src="js/_layout.js"></script>
+<script>
+let episData        = [];
+let empresasData    = [];
+let unidadesData    = [];
+let subunidadesData = [];
+let fornsData       = [];
+let movsData        = [];
+let colaboradoresData = [];
+let estoqueOrigem     = [];
+/* solicitacoesData removed: solicitação linking is optional */
+
+const TRASH = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
+
+function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+
+const TIPO_CONFIG = {
+  'Entrada'       : { cls:'entrada',    label:'Entrada'        },
+  'Saída'         : { cls:'saida',      label:'Saída'          },
+  'Devolução'    : { cls:'devolucao',  label:'Devolução'      },
+  'Ajuste'        : { cls:'ajuste',     label:'Ajuste'         },
+  'Transferência'  : { cls:'transfer',   label:'Transferência'  },
+};
+
+document.addEventListener('authReady', async () => {
+  await Promise.all([loadEpisEmpresas(), loadMovs()]);
+});
+
+/* ════ CARREGAR DADOS BASE ════ */
+async function loadEpisEmpresas() {
+  const [re, rem, run, rsu, rf, rc] = await Promise.all([
+    fetch('api/movimentacoes.php?action=epis'),
+    fetch('api/movimentacoes.php?action=empresas'),
+    fetch('api/movimentacoes.php?action=unidades'),
+    fetch('api/movimentacoes.php?action=subunidades'),
+    fetch('api/fornecedores.php'),
+    fetch('api/colaboradores.php'),
+  ]);
+  episData        = re.ok  ? await re.json()  : [];
+  empresasData    = rem.ok ? await rem.json() : [];
+  unidadesData    = run.ok ? await run.json() : [];
+  subunidadesData = rsu.ok ? await rsu.json() : [];
+  fornsData       = rf.ok  ? await rf.json()  : [];
+  colaboradoresData = rc.ok ? await rc.json() : [];
+
+  // Fallback: se o endpoint de empresas falhar ou retornar vazio, tente o endpoint dedicado `api/empresas.php`
+  if ((!rem.ok || !Array.isArray(empresasData) || empresasData.length === 0)) {
+    try {
+      const rem2 = await fetch('api/empresas.php');
+      if (rem2.ok) {
+        const ed = await rem2.json();
+        if (Array.isArray(ed) && ed.length > 0) empresasData = ed;
+      }
+    } catch (e) {
+      console.warn('Fallback para api/empresas.php falhou', e);
+    }
+  }
+
+  populateEmpresaSelects();
+  populateFornecedores();
+  populateTranspCombo();
+  initTransferModalOptions();
+  applyUserLocationLock();
+}
+
+function applyUserLocationLock() {
+  const user = window.currentUser || {};
+  const isSuper = user && (user.perfil === 0 || user.super_user === true || user.super_user === 1);
+  if (isSuper) return;
+
+  const toggleField = (selectId, show) => {
+    const el = document.getElementById(selectId);
+    const wrap = el ? el.closest('.mfield') : null;
+    if (wrap) wrap.style.display = show ? '' : 'none';
+  };
+
+  const lockSelect = (id, value) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (value !== null && value !== undefined) el.value = value;
+    el.disabled = true;
+  };
+
+  const setOrigEmpresa = (empresaId) => {
+    lockSelect('m-orig-empresa', empresaId || '');
+    onEmpresaChange('orig');
+    toggleField('m-orig-empresa', !!empresaId);
+  };
+
+  const setEntradaEmpresa = (empresaId) => {
+    lockSelect('m-entrada-empresa', empresaId || '');
+    toggleField('m-entrada-empresa', !!empresaId);
+  };
+
+  const setOrigLocation = (empresaId, unidadeId, subId) => {
+    setOrigEmpresa(empresaId);
+    if (unidadeId) {
+      lockSelect('m-orig-unidade', unidadeId);
+      onUnidadeChange('orig');
+    }
+    if (subId) {
+      lockSelect('m-orig-subunidade', subId);
+      loadEstoqueOrigem();
+    }
+  };
+
+  if (user.perfil === 1 && user.empresa_id) {
+    setOrigLocation(user.empresa_id, null, null);
+    setEntradaEmpresa(user.empresa_id);
+    enforceTipoRestricoes();
+    return;
+  }
+
+  if (user.perfil === 2 && user.unidade_id) {
+    const u = (unidadesData || []).find(x => String(x.ID_UNIDADE) === String(user.unidade_id));
+    if (u) {
+      setOrigLocation(u.EMPRESA_ID || '', user.unidade_id, null);
+      setEntradaEmpresa(u.EMPRESA_ID || '');
+    }
+    enforceTipoRestricoes();
+    return;
+  }
+
+  const subId = user.subunidade_id || user.almoxarifado_id;
+  if (subId) {
+    const sub = (subunidadesData || []).find(s => String(s.ID_SUBUNIDADE) === String(subId));
+    const uni = sub ? (unidadesData || []).find(u => String(u.ID_UNIDADE) === String(sub.UNIDADE_ID)) : null;
+    if (uni) {
+      setOrigLocation(uni.EMPRESA_ID || '', uni.ID_UNIDADE, subId);
+      setEntradaEmpresa(uni.EMPRESA_ID || '');
+    }
+  }
+  enforceTipoRestricoes();
+}
+
+function canUseEntrada() {
+  const user = window.currentUser || {};
+  const isSuper = user && (user.perfil === 0 || user.super_user === true || user.super_user === 1);
+  if (isSuper) return true;
+  if (user.unidade_id || user.subunidade_id || user.almoxarifado_id) return false;
+  return user.perfil !== 2 && user.perfil !== 3;
+}
+
+function enforceTipoRestricoes() {
+  const tipoSel = document.getElementById('m-tipo');
+  if (!tipoSel) return;
+  const entradaOpt = Array.from(tipoSel.options).find(o => o.value === 'Entrada');
+  if (!entradaOpt) return;
+  const allowed = canUseEntrada();
+  entradaOpt.disabled = !allowed;
+  entradaOpt.style.display = allowed ? '' : 'none';
+  if (!allowed && tipoSel.value === 'Entrada') {
+    tipoSel.value = '';
+  }
+}
+
+function populateEmpresaSelects() {
+  ['orig','dest','entrada'].forEach(prefix => {
+    const sel = document.getElementById(`m-${prefix}-empresa`);
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Selecione...</option>';
+    empresasData.forEach(e => {
+      const o = document.createElement('option');
+      o.value = e.ID_EMPRESA; o.textContent = e.RAZAO_SOCIAL; sel.appendChild(o);
+    });
+  });
+}
+
+function initTransferModalOptions() {
+  const eSel = document.getElementById('t-orig-empresa');
+  if (eSel) {
+    eSel.innerHTML = '<option value="">Selecione...</option>';
+    empresasData.forEach(e => {
+      const o = document.createElement('option');
+      o.value = e.ID_EMPRESA; o.textContent = e.RAZAO_SOCIAL; eSel.appendChild(o);
+    });
+  }
+  const dEmp = document.getElementById('t-dest-empresa');
+  if (dEmp) {
+    dEmp.innerHTML = '<option value="">Selecione...</option>';
+    empresasData.forEach(e => {
+      const o = document.createElement('option');
+      o.value = e.ID_EMPRESA; o.textContent = e.RAZAO_SOCIAL; dEmp.appendChild(o);
+    });
+  }
+}
+
+function onTransferEmpresaChange() {
+  const empId = document.getElementById('t-orig-empresa')?.value || '';
+  const uSel = document.getElementById('t-orig-unidade');
+  const sSel = document.getElementById('t-orig-subunidade');
+  if (!uSel || !sSel) return;
+  uSel.innerHTML = '<option value="">Selecione...</option>';
+  sSel.innerHTML = '<option value="">Selecione...</option>';
+  const unids = empId
+    ? (unidadesData || []).filter(u => String(u.EMPRESA_ID) === String(empId))
+    : (unidadesData || []);
+  unids.forEach(u => {
+    const o = document.createElement('option');
+    o.value = u.ID_UNIDADE; o.textContent = u.NOME; uSel.appendChild(o);
+  });
+}
+
+function onTransferUnidadeChange() {
+  const unId = document.getElementById('t-orig-unidade')?.value || '';
+  const sSel = document.getElementById('t-orig-subunidade');
+  if (!sSel) return;
+  sSel.innerHTML = '<option value="">Selecione...</option>';
+  if (!unId) return;
+  const subs = (subunidadesData || []).filter(s => String(s.UNIDADE_ID) === String(unId));
+  subs.forEach(s => {
+    const o = document.createElement('option');
+    o.value = s.ID_SUBUNIDADE; o.textContent = s.NOME; sSel.appendChild(o);
+  });
+}
+
+function getDefaultDestino() {
+  const origEmpresa = document.getElementById('m-orig-empresa')?.value || '';
+  const origUnidade = document.getElementById('m-orig-unidade')?.value || '';
+  const origSub = document.getElementById('m-orig-subunidade')?.value || '';
+  if (origEmpresa || origUnidade || origSub) {
+    return { empresa: origEmpresa, unidade: origUnidade, subunidade: origSub };
+  }
+  const user = window.currentUser || {};
+  return {
+    empresa: user.empresa_id || '',
+    unidade: user.unidade_id || '',
+    subunidade: user.subunidade_id || user.almoxarifado_id || ''
+  };
+}
+
+function openTransferModal(epiId, label) {
+  const modal = document.getElementById('transfer-modal-bg');
+  if (!modal) return;
+  document.getElementById('t-epi-id').value = epiId || '';
+  document.getElementById('t-epi-label').value = label || '';
+  document.getElementById('t-qty').value = 1;
+  document.getElementById('t-prio').value = 'Normal';
+  document.getElementById('t-obs').value = '';
+
+  const oEmp = document.getElementById('t-orig-empresa');
+  const oUni = document.getElementById('t-orig-unidade');
+  const oSub = document.getElementById('t-orig-subunidade');
+  if (oEmp) oEmp.value = '';
+  if (oUni) oUni.innerHTML = '<option value="">Selecione...</option>';
+  if (oSub) oSub.innerHTML = '<option value="">Selecione...</option>';
+
+  const destino = getDefaultDestino();
+  if (!destino.empresa && !destino.unidade && !destino.subunidade) {
+    toast('Defina a origem/destino antes de solicitar transferencia.', 'warning');
+    return;
+  }
+  const dEmp = document.getElementById('t-dest-empresa');
+  const dUni = document.getElementById('t-dest-unidade');
+  const dSub = document.getElementById('t-dest-subunidade');
+  if (dEmp) dEmp.value = destino.empresa || '';
+  if (dUni) {
+    dUni.innerHTML = '<option value="">Selecione...</option>';
+    (unidadesData || []).forEach(u => {
+      const o = document.createElement('option');
+      o.value = u.ID_UNIDADE; o.textContent = u.NOME; dUni.appendChild(o);
+    });
+    dUni.value = destino.unidade || '';
+  }
+  if (dSub) {
+    dSub.innerHTML = '<option value="">Selecione...</option>';
+    (subunidadesData || []).forEach(s => {
+      const o = document.createElement('option');
+      o.value = s.ID_SUBUNIDADE; o.textContent = s.NOME; dSub.appendChild(o);
+    });
+    dSub.value = destino.subunidade || '';
+  }
+  modal.classList.remove('hidden');
+}
+
+function closeTransferModal() {
+  const modal = document.getElementById('transfer-modal-bg');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function submitTransferRequest() {
+  const epiId = parseInt(document.getElementById('t-epi-id')?.value || '0');
+  const qty = parseInt(document.getElementById('t-qty')?.value || '0');
+  if (!epiId || !qty) { toast('Informe um EPI e quantidade.', 'warning'); return; }
+  const payload = {
+    empresa_id: document.getElementById('t-orig-empresa')?.value || null,
+    unidade_id: document.getElementById('t-orig-unidade')?.value || null,
+    subunidade_id: document.getElementById('t-orig-subunidade')?.value || null,
+    destino_empresa_id: document.getElementById('t-dest-empresa')?.value || null,
+    destino_unidade_id: document.getElementById('t-dest-unidade')?.value || null,
+    destino_subunidade_id: document.getElementById('t-dest-subunidade')?.value || null,
+    observacao: document.getElementById('t-obs')?.value.trim() || null,
+    prioridade: document.getElementById('t-prio')?.value || 'Normal',
+    itens: [{ epi_id: epiId, quantidade: qty, prioridade: document.getElementById('t-prio')?.value || 'Normal' }]
+  };
+  const r = await fetch('api/reabastecimento.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const d = await r.json();
+  if (!r.ok || !d.success) { toast(d.error || 'Erro ao enviar solicitacao.', 'error'); return; }
+  toast('Solicitacao enviada!', 'success');
+  closeTransferModal();
+}
+
+function populateFornecedores() {
+  const sel = document.getElementById('m-entrada-fornecedor');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Opcional</option>';
+  fornsData.filter(f => f.IS_ATIVO).forEach(f => {
+    const o = document.createElement('option');
+    o.value = f.ID_FORNECEDOR; o.textContent = f.NOME; sel.appendChild(o);
+  });
+}
+
+function populateTranspCombo() {
+  const list = document.getElementById('transp-combo-list');
+  if (!list) return;
+  if (!colaboradoresData.length) {
+    list.innerHTML = '<div class="epi-combo-empty">Sem colaboradores</div>';
+    return;
+  }
+  list.innerHTML = colaboradoresData.map(c => {
+    const sub = [c.FUNCAO, c.EMPRESA].filter(Boolean).join(' — ');
+    return `<div class="epi-combo-item" onclick="selectTranspCombo(${c.ID},'${esc(c.NOME)}')">
+      <div>${esc(c.NOME)}</div>
+      ${sub ? `<div style="font-size:11px;color:#888">${esc(sub)}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function populateDevEquipes() {
+  const sel = document.getElementById('m-devol-equipe');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Todas as equipes</option>';
+  const equipes = [...new Set(colaboradoresData.map(c => c.EQUIPE).filter(Boolean))].sort();
+  equipes.forEach(eq => {
+    const o = document.createElement('option');
+    o.value = eq; o.textContent = eq; sel.appendChild(o);
+  });
+  sel.value = current;
+}
+
+function onDevEquipeChange() {
+  /* Reseta seleção de colaborador e re-renderiza a lista filtrada */
+  const btn = document.getElementById('devs-combo-btn');
+  if (btn) {
+    btn.dataset.value = '';
+    btn.innerHTML = `<span class="combo-placeholder">Selecione o colaborador...</span>${CHEVRON_DOWN}`;
+  }
+  document.getElementById('itens-list').innerHTML = '';
+  const srch = document.querySelector('#devs-combo .epi-combo-search');
+  if (srch) srch.value = '';
+  populateDevsCombo();
+}
+
+
+function populateDevsCombo() {
+  const list = document.getElementById('devs-combo-list');
+  if (!list) return;
+  const equipe = document.getElementById('m-devol-equipe')?.value || '';
+  const filtered = equipe
+    ? colaboradoresData.filter(c => c.EQUIPE === equipe)
+    : colaboradoresData;
+  if (!filtered.length) {
+    list.innerHTML = '<div class="epi-combo-empty">Nenhum colaborador encontrado</div>';
+    return;
+  }
+  list.innerHTML = filtered.map(c => {
+    const sub = [c.FUNCAO, c.EMPRESA, c.EQUIPE].filter(Boolean).join(' — ');
+    return `<div class="epi-combo-item" data-equipe="${esc(c.EQUIPE||'')}" onclick="selectDevsCombo(${c.ID},'${esc(c.NOME)}')">\n      <div>${esc(c.NOME)}</div>\n      ${sub ? `<div style="font-size:11px;color:#888">${esc(sub)}</div>` : ''}\n    </div>`;
+  }).join('');
+}
+
+function filterDevsCombo(inp) {
+  const q = inp.value.toLowerCase();
+  const list = document.getElementById('devs-combo-list');
+  let any = false;
+  list.querySelectorAll('.epi-combo-item').forEach(el => {
+    const m = !q || el.textContent.toLowerCase().includes(q);
+    el.style.display = m ? '' : 'none';
+    if (m) any = true;
+  });
+  let empty = list.querySelector('.epi-combo-empty');
+  if (!any) {
+    if (!empty) { empty = document.createElement('div'); empty.className = 'epi-combo-empty'; empty.textContent = 'Nenhum colaborador encontrado'; list.appendChild(empty); }
+    empty.style.display = '';
+  } else if (empty) { empty.style.display = 'none'; }
+}
+
+function selectDevsCombo(id, label) {
+  const btn = document.getElementById('devs-combo-btn');
+  btn.dataset.value = id;
+  btn.innerHTML = `<span class="combo-label">${esc(label)}</span>${CHEVRON_DOWN}`;
+  btn.classList.remove('open');
+  document.getElementById('devs-combo-drop').classList.remove('open');
+  const c = colaboradoresData.find(x => x.ID === id);
+  if (c && c.EQUIPE) ensureEquipeSelected('m-devol-equipe', c.EQUIPE, populateDevsCombo);
+  /* Carregar EPIs em posse */
+  loadDevItems(id);
+}
+
+function populateSaidaEquipes() {
+  const sel = document.getElementById('m-saida-equipe');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Todas as equipes</option>';
+  const equipes = [...new Set(colaboradoresData.map(c => c.EQUIPE).filter(Boolean))].sort();
+  equipes.forEach(eq => {
+    const o = document.createElement('option');
+    o.value = eq; o.textContent = eq; sel.appendChild(o);
+  });
+  sel.value = current;
+}
+
+function onSaidaEquipeChange() {
+  const btn = document.getElementById('saida-combo-btn');
+  if (btn) {
+    btn.dataset.value = '';
+    btn.innerHTML = `<span class="combo-placeholder">Selecione o colaborador...</span>${CHEVRON_DOWN}`;
+  }
+  const srch = document.querySelector('#saida-combo .epi-combo-search');
+  if (srch) srch.value = '';
+  populateSaidaCombo();
+}
+
+function populateSaidaCombo() {
+  const list = document.getElementById('saida-combo-list');
+  if (!list) return;
+  const equipe = document.getElementById('m-saida-equipe')?.value || '';
+  const filtered = equipe ? colaboradoresData.filter(c => c.EQUIPE === equipe) : colaboradoresData;
+  if (!filtered.length) {
+    list.innerHTML = '<div class="epi-combo-empty">Nenhum colaborador encontrado</div>';
+    return;
+  }
+  list.innerHTML = filtered.map(c => {
+    const sub = [c.FUNCAO, c.EMPRESA, c.EQUIPE].filter(Boolean).join(' — ');
+    return `<div class="epi-combo-item" data-equipe="${esc(c.EQUIPE||'')}" onclick="selectSaidaCombo(${c.ID},'${esc(c.NOME)}')">\n      <div>${esc(c.NOME)}</div>\n      ${sub ? `<div style="font-size:11px;color:#888">${esc(sub)}</div>` : ''}\n    </div>`;
+  }).join('');
+}
+
+function filterSaidaCombo(inp) {
+  const q = inp.value.toLowerCase();
+  const list = document.getElementById('saida-combo-list');
+  let any = false;
+  list.querySelectorAll('.epi-combo-item').forEach(el => {
+    const m = !q || el.textContent.toLowerCase().includes(q);
+    el.style.display = m ? '' : 'none';
+    if (m) any = true;
+  });
+  let empty = list.querySelector('.epi-combo-empty');
+  if (!any) {
+    if (!empty) { empty = document.createElement('div'); empty.className = 'epi-combo-empty'; empty.textContent = 'Nenhum colaborador encontrado'; list.appendChild(empty); }
+    empty.style.display = '';
+  } else if (empty) { empty.style.display = 'none'; }
+}
+
+function selectSaidaCombo(id, label) {
+  const btn = document.getElementById('saida-combo-btn');
+  btn.dataset.value = id;
+  btn.innerHTML = `<span class="combo-label">${esc(label)}</span>${CHEVRON_DOWN}`;
+  btn.classList.remove('open');
+  document.getElementById('saida-combo-drop').classList.remove('open');
+  const c = colaboradoresData.find(x => x.ID === id);
+  if (c && c.EQUIPE) ensureEquipeSelected('m-saida-equipe', c.EQUIPE, populateSaidaCombo);
+}
+
+function ensureEquipeSelected(selectId, equipe, onChange) {
+  const sel = document.getElementById(selectId);
+  if (!sel || sel.value) return;
+  const exists = Array.from(sel.options).some(o => o.value === equipe);
+  if (!exists) {
+    const o = document.createElement('option');
+    o.value = equipe; o.textContent = equipe; sel.appendChild(o);
+  }
+  sel.value = equipe;
+  if (typeof onChange === 'function') onChange();
+}
+
+async function loadDevItems(colabId) {
+  const list = document.getElementById('itens-list');
+  list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted-fg);font-size:13px">Carregando EPIs em posse...</div>';
+  try {
+    const r = await fetch('api/movimentacoes.php?action=epi_em_posse&colaborador_id=' + colabId);
+    const items = r.ok ? await r.json() : [];
+    list.innerHTML = '';
+    if (!items.length) {
+      list.innerHTML = '<div style="padding:12px 0;color:var(--muted-fg);font-size:13px">Nenhum EPI em posse encontrado para este colaborador.</div>';
+      return;
+    }
+    items.forEach(item => addDevItemCard(item));
+  } catch(e) {
+    list.innerHTML = '<div style="padding:12px 0;color:#dc2626;font-size:13px">Erro ao carregar EPIs.</div>';
+  }
+}
+
+function addDevItemCard(item) {
+  itemCounter++;
+  const id = 'item-' + itemCounter;
+  const div = document.createElement('div');
+  div.className = 'item-card dev-card';
+  div.id = id;
+  div.dataset.epiId = item.EPI_ID;
+  const dataEntrega = item.DATA_ENTREGA ? new Date(item.DATA_ENTREGA).toLocaleDateString('pt-BR') : '—';
+  div.innerHTML = `
+    <div>
+      <span class="dev-card-label">${esc(item.DESCRICAO)}</span>
+      ${item.CA ? `<span class="dev-card-ca">CA ${esc(item.CA)}</span>` : ''}
+      <div class="dev-card-date">📅 Entregue em ${dataEntrega} &nbsp;&bull;&nbsp; Em posse: ${item.QUANTIDADE_EM_POSSE}</div>
+    </div>
+    <div class="item-card-controls">
+      <input class="input" type="number" min="1" max="${item.QUANTIDADE_EM_POSSE}" value="${item.QUANTIDADE_EM_POSSE}" aria-label="Quantidade a devolver">
+      <span class="unit-lbl">unid.</span>
+      <button class="icon-btn del" title="Remover" onclick="removeItem('${id}')">${TRASH}</button>
+    </div>
+  `;
+  document.getElementById('itens-list').appendChild(div);
+}
+/* Solicitação combo helpers removed (solicitação linking optional). */
+
+/* ════ ESTOQUE DA ORIGEM ════ */
+async function loadEstoqueOrigem() {
+  const empresaId    = parseInt(document.getElementById('m-orig-empresa')?.value    || '0') || null;
+  const unidadeId    = parseInt(document.getElementById('m-orig-unidade')?.value    || '0') || null;
+  const subunidadeId = parseInt(document.getElementById('m-orig-subunidade')?.value || '0') || null;
+  if (!empresaId) { estoqueOrigem = []; refreshEpiCombos(); return; }
+  const qs = new URLSearchParams({ action: 'list' });
+  qs.append('empresa_id', empresaId);
+  if (unidadeId)    qs.append('unidade_id',    unidadeId);
+  if (subunidadeId) qs.append('subunidade_id', subunidadeId);
+  const r = await fetch('api/estoque.php?' + qs);
+  estoqueOrigem = r.ok ? (await r.json()).filter(e => e.QUANTIDADE > 0) : [];
+  refreshEpiCombos();
+}
+
+/* Retorna os EPIs disponíveis para o combo: filtrados pela origem (se tipo ≠ Entrada/Ajuste) ou todos */
+function getSourceData() {
+  const tipo      = document.getElementById('m-tipo')?.value;
+  const empresaId = parseInt(document.getElementById('m-orig-empresa')?.value || '0');
+  /* Ajuste: sempre todos os EPIs do sistema, sem filtro de estoque */
+  if (tipo === 'Ajuste') {
+    return episData.map(e => ({ ID: e.ID, DESCRICAO: e.DESCRICAO, CA: e.CA, ESTOQUE: null }));
+  }
+  if (tipo && tipo !== 'Entrada' && empresaId && estoqueOrigem.length > 0) {
+    return estoqueOrigem.map(e => ({ ID: e.EPI_ID, DESCRICAO: e.DESCRICAO, CA: e.CA, ESTOQUE: e.QUANTIDADE }));
+  }
+  return episData.map(e => ({ ID: e.ID, DESCRICAO: e.DESCRICAO, CA: e.CA, ESTOQUE: null }));
+}
+
+/* Atualiza as listas de EPI de todos os item-cards já criados */
+function refreshEpiCombos() {
+  document.querySelectorAll('#itens-list .item-card').forEach(card => {
+    const combo = card.querySelector('.epi-combo');
+    if (!combo) return;
+    const comboId    = combo.id;
+    const trigger    = document.getElementById(comboId + '-btn');
+    const list       = document.getElementById(comboId + '-list');
+    if (!list) return;
+    const selectedId = trigger?.dataset.value ? parseInt(trigger.dataset.value) : null;
+    const sourceData = getSourceData();
+    list.innerHTML = sourceData.map(e => {
+      const stockLabel = e.ESTOQUE !== null ? ' <span style="color:var(--muted-fg);font-size:11px">(estoque: ' + e.ESTOQUE + ')</span>' : '';
+      const label = esc(e.DESCRICAO) + (e.CA ? ' (CA ' + e.CA + ')' : '');
+      const sel   = selectedId == e.ID ? ' selected' : '';
+      return '<div class="epi-combo-item' + sel + '" onclick="selectCombo(\'' + comboId + '\',' + e.ID + ',\'' + esc(e.DESCRICAO) + (e.CA ? ' (CA ' + e.CA + ')' : '') + '\',' + (e.ESTOQUE ?? 'null') + ')">' + label + stockLabel + '</div>';
+    }).join('') || '<div class="epi-combo-empty">Nenhum EPI em estoque na origem selecionada</div>';
+    const qtyInput = card.querySelector('.item-card-controls input');
+    const isAjuste  = document.getElementById('m-tipo')?.value === 'Ajuste';
+    if (isAjuste) {
+      if (qtyInput) { qtyInput.removeAttribute('max'); qtyInput.removeAttribute('min'); }
+    } else if (selectedId) {
+      const found = sourceData.find(e => e.ID === selectedId);
+      if (found) {
+        if (found.ESTOQUE !== null) {
+          if (qtyInput) { qtyInput.max = found.ESTOQUE; if (parseInt(qtyInput.value) > found.ESTOQUE) qtyInput.value = found.ESTOQUE; }
+        } else if (qtyInput) {
+          qtyInput.removeAttribute('max');
+        }
+        if (found.ESTOQUE !== null && found.ESTOQUE > 0) {
+          clearStockWarning(card);
+        }
+      } else {
+        /* EPI não existe mais no estoque da origem — reseta a seleção */
+        if (trigger) { trigger.dataset.value = ''; trigger.innerHTML = '<span class="combo-placeholder">Selecione o EPI...</span>' + CHEVRON_DOWN; }
+        if (qtyInput) { qtyInput.removeAttribute('max'); qtyInput.value = 1; }
+        clearStockWarning(card);
+      }
+    }
+  });
+}
+
+function filterTranspCombo(inp) {
+  const q = inp.value.toLowerCase();
+  const list = document.getElementById('transp-combo-list');
+  let any = false;
+  list.querySelectorAll('.epi-combo-item').forEach(el => {
+    const m = el.textContent.toLowerCase().includes(q);
+    el.style.display = m ? '' : 'none';
+    if (m) any = true;
+  });
+  let empty = list.querySelector('.epi-combo-empty');
+  if (!any) {
+    if (!empty) { empty = document.createElement('div'); empty.className = 'epi-combo-empty'; empty.textContent = 'Nenhum colaborador encontrado'; list.appendChild(empty); }
+    empty.style.display = '';
+  } else if (empty) { empty.style.display = 'none'; }
+}
+
+function selectTranspCombo(id, label) {
+  const btn = document.getElementById('transp-combo-btn');
+  btn.dataset.value = id;
+  btn.innerHTML = `<span class="combo-label">${esc(label)}</span>${CHEVRON_DOWN}`;
+  btn.classList.remove('open');
+  document.getElementById('transp-combo-drop').classList.remove('open');
+}
+
+function onEmpresaChange(prefix) {
+  const empresaSel = document.getElementById(`m-${prefix}-empresa`);
+  if (!empresaSel) return;
+  const raw       = empresaSel.value;
+  const empresaId = raw ? parseInt(raw) : null;
+  const unidSel   = document.getElementById(`m-${prefix}-unidade`);
+  const unidWrap  = document.getElementById(`mrow-${prefix}`);
+  const subSel    = document.getElementById(`m-${prefix}-subunidade`);
+  const subWrap   = document.getElementById(`field-${prefix}-subunidade`);
+  if (!unidSel || !subSel) { if (prefix === 'orig') loadEstoqueOrigem(); return; }
+
+  unidSel.innerHTML = '<option value="">Selecione...</option>';
+  subSel.innerHTML  = '<option value="">Selecione...</option>';
+  if (subWrap) subWrap.style.display = 'none';
+
+  const unids = empresaId
+    ? unidadesData.filter(u => parseInt(u.EMPRESA_ID) === empresaId)
+    : unidadesData.filter(u => u.EMPRESA_ID == null || u.EMPRESA_ID === '');
+
+  if (!unids.length) {
+    if (unidWrap) unidWrap.style.display = 'none';
+  } else {
+    unids.forEach(u => {
+      const o = document.createElement('option');
+      o.value = u.ID_UNIDADE; o.textContent = u.NOME; unidSel.appendChild(o);
+    });
+    if (unidWrap) unidWrap.style.display = '';
+  }
+  if (prefix === 'orig') loadEstoqueOrigem();
+}
+
+function onUnidadeChange(prefix) {
+  const unidadeSel = document.getElementById(`m-${prefix}-unidade`);
+  if (!unidadeSel) return;
+  const unidadeId = parseInt(unidadeSel.value || '0');
+  const subSel    = document.getElementById(`m-${prefix}-subunidade`);
+  const subWrap   = document.getElementById(`field-${prefix}-subunidade`);
+  if (!subSel) { if (prefix === 'orig') loadEstoqueOrigem(); return; }
+  subSel.innerHTML = '<option value="">Selecione...</option>';
+  if (!unidadeId) {
+    if (subWrap) subWrap.style.display = 'none';
+  } else {
+    const subs = subunidadesData.filter(s => parseInt(s.UNIDADE_ID) === unidadeId);
+    if (!subs.length) {
+      if (subWrap) subWrap.style.display = 'none';
+    } else {
+      subs.forEach(s => {
+        const o = document.createElement('option');
+        o.value = s.ID_SUBUNIDADE; o.textContent = s.NOME; subSel.appendChild(o);
+      });
+      if (subWrap) subWrap.style.display = '';
+    }
+  }
+  if (prefix === 'orig') loadEstoqueOrigem();
+}
+
+/* ════ LISTA ════ */
+async function loadMovs() {
+  const tipo   = document.getElementById('f-tipo').value;
+  const dataIni = document.getElementById('f-ini').value;
+  const dataFim = document.getElementById('f-fim').value;
+
+  const qs = new URLSearchParams({ action:'list' });
+  if (tipo)    qs.append('tipo',     tipo);
+  if (dataIni) qs.append('data_ini', dataIni);
+  if (dataFim) qs.append('data_fim', dataFim);
+
+  const user = window.currentUser || {};
+  const isSuper = user && (user.perfil === 0 || user.super_user === true || user.super_user === 1);
+  if (!isSuper) {
+    if (user.empresa_id) qs.append('empresa_id', user.empresa_id);
+    if (user.unidade_id) qs.append('unidade_id', user.unidade_id);
+    const subId = user.subunidade_id || user.almoxarifado_id;
+    if (subId) qs.append('subunidade_id', subId);
+  }
+
+  const r  = await fetch('api/movimentacoes.php?' + qs);
+  movsData = r.ok ? await r.json() : [];
+  renderMovs();
+}
+
+function renderMovs() {
+  const tb = document.getElementById('tbody-movs');
+  if (!movsData.length) {
+    tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted-fg);padding:36px">Nenhuma movimentação encontrada.</td></tr>';
+    return;
+  }
+  tb.innerHTML = movsData.map(m => {
+    const tc  = TIPO_CONFIG[m.TIPO] ?? { cls:'ajuste', label: m.TIPO ?? '—' };
+    const dt  = m.DATA_TRANSFERENCIA ? formatDatetime(m.DATA_TRANSFERENCIA) : '—';
+    const episTxt = m.EPIS_NOMES
+      ? (m.EPIS_NOMES.length > 48 ? m.EPIS_NOMES.slice(0,48)+'…' : m.EPIS_NOMES)
+      : `${m.QTD_ITENS} item(ns)`;
+    const origLabel = locationLabel(m.ORIGEM_EMPRESA, m.ORIGEM_UNIDADE, m.ORIGEM_SUBUNIDADE);
+    const destLabel = locationLabel(m.DESTINO_EMPRESA, m.DESTINO_UNIDADE, m.DESTINO_SUBUNIDADE);
+    const emRota = m.TIPO === 'Transfer\u00eancia' && !m.STATUS_ENTREGA;
+    const entregaBadge = m.TIPO === 'Transfer\u00eancia'
+      ? (m.STATUS_ENTREGA ? ' <span style="font-size:10px;font-weight:600;color:#15803d">&#10003; Entregue</span>'
+                          : ' <span style="font-size:10px;font-weight:600;color:#92400e">&#128665; Em rota</span>')
+      : '';
+    return `<tr class="row-clickable" onclick="if(!event.target.closest('.icon-btn'))toggleDetail(${m.ID})">
+      <td style="font-size:12px;color:var(--muted-fg)"><span class="row-expand-icon" id="icon-${m.ID}">&#9656;</span>${esc(dt)}</td>
+      <td><span class="badge ${tc.cls}">${tc.label}</span>${entregaBadge}</td>
+      <td title="${esc(m.EPIS_NOMES??'')}">${esc(episTxt)}</td>
+      <td style="font-size:13px">${esc(origLabel)}</td>
+      <td style="font-size:13px">${esc(destLabel)}</td>
+      <td style="font-size:13px;color:var(--muted-fg)">${esc(m.RESPONSAVEL_NOME ?? '\u2014')}</td>
+      <td>${emRota ? '<button class="icon-btn" title="Confirmar entrega" onclick="confirmarEntregaTransf('+m.ID+')" style="color:#15803d">&#10003;</button>' : ''}<button class="icon-btn del" title="Excluir" onclick="excluir(${m.ID})">${TRASH}</button></td>
+    </tr>
+    <tr class="detail-row" id="detail-${m.ID}" style="display:none"><td colspan="7"></td></tr>`;
+  }).join('');
+}
+
+function clearFilters() {
+  document.getElementById('f-tipo').value = '';
+  document.getElementById('f-ini').value  = '';
+  document.getElementById('f-fim').value  = '';
+  loadMovs();
+}
+
+async function toggleDetail(id) {
+  const row  = document.getElementById('detail-' + id);
+  const icon = document.getElementById('icon-' + id);
+  if (!row) return;
+  if (row.style.display !== 'none') {
+    row.style.display = 'none';
+    if (icon) icon.textContent = '\u25b8';
+    return;
+  }
+  row.style.display = '';
+  if (icon) icon.textContent = '\u25be';
+  const td = row.querySelector('td');
+  if (td.dataset.loaded) return;
+  td.innerHTML = '<span style="font-size:12px;color:var(--muted-fg)">Carregando\u2026</span>';
+  const resp  = await fetch('api/movimentacoes.php?action=itens&id=' + id);
+  const itens = resp.ok ? await resp.json() : [];
+  td.dataset.loaded = '1';
+  if (!itens.length) {
+    td.innerHTML = '<span style="font-size:12px;color:var(--muted-fg)">Nenhum item encontrado.</span>';
+    return;
+  }
+  const hasCusto = itens.some(i => i.CUSTO_UNITARIO != null && parseFloat(i.CUSTO_UNITARIO) > 0);
+  const fmt = v => 'R\u00a0' + parseFloat(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  td.innerHTML = `
+    <table class="detail-itens-table">
+      <thead><tr>
+        <th>EPI</th><th>CA</th><th style="text-align:right">Qtd</th>
+        ${hasCusto ? '<th style="text-align:right">Custo unit.</th><th style="text-align:right">Total</th>' : ''}
+      </tr></thead>
+      <tbody>${itens.map(i => {
+        const custo = i.CUSTO_UNITARIO ? parseFloat(i.CUSTO_UNITARIO) : null;
+        const qty   = parseInt(i.QUANTIDADE || 0);
+        const total = custo && qty ? qty * custo : null;
+        return `<tr>
+          <td>${esc(i.DESCRICAO ?? '\u2014')}</td>
+          <td style="color:var(--muted-fg)">${esc(i.CA ?? '\u2014')}</td>
+          <td style="text-align:right">${qty}</td>
+          ${hasCusto ? `<td style="text-align:right">${custo ? fmt(custo) : '\u2014'}</td><td style="text-align:right;font-weight:600">${total ? fmt(total) : '\u2014'}</td>` : ''}
+        </tr>`;
+      }).join('')}</tbody>
+    </table>
+  `;
+}
+
+/* ════ HELPERS ════ */
+function locationLabel(empresa, unidade, subunidade) {
+  if (!empresa) return '—';
+  let s = empresa;
+  if (unidade) s += ' › ' + unidade;
+  if (subunidade) s += ' › ' + subunidade;
+  return s;
+}
+
+/* ════ MODAL ════ */
+function openModal() {
+  document.getElementById('m-tipo').value = '';
+  document.getElementById('m-obs').value  = '';
+  /* Reset cascading selects */
+  ['orig','dest'].forEach(prefix => {
+    const emp = document.getElementById(`m-${prefix}-empresa`);
+    if (emp) emp.value = '';
+    ['subunidade'].forEach(lvl => {
+      const el = document.getElementById(`m-${prefix}-${lvl}`);
+      if (el) el.innerHTML = '<option value="">Selecione...</option>';
+    });
+    onEmpresaChange(prefix);
+  });
+  /* Reset campos de Entrada */
+  document.getElementById('m-entrada-empresa').value    = '';
+  document.getElementById('m-entrada-fornecedor').value = '';
+  document.getElementById('m-entrada-nota').value       = '';
+  const custoDsp = document.getElementById('custo-total-display');
+  if (custoDsp) custoDsp.textContent = '\u2014';
+  /* Visibilidade inicial das seções */
+  onTipoChange();
+  document.getElementById('itens-list').innerHTML = '';
+  addItemRow();
+  /* Reset transportador */
+  const transpBtn = document.getElementById('transp-combo-btn');
+  if (transpBtn) {
+    transpBtn.dataset.value = '';
+    transpBtn.innerHTML = `<span class="combo-placeholder">Selecione o transportador...</span>${CHEVRON_DOWN}`;
+    const drop = document.getElementById('transp-combo-drop');
+    if (drop) { drop.classList.remove('open'); transpBtn.classList.remove('open'); }
+    const srch = document.querySelector('#transp-combo .epi-combo-search');
+    if (srch) srch.value = '';
+    populateTranspCombo();
+  }
+  // solicitacao UI removed: no reset required
+  /* Reset saida combo */
+  const saidaBtn = document.getElementById('saida-combo-btn');
+  if (saidaBtn) {
+    saidaBtn.dataset.value = '';
+    saidaBtn.innerHTML = `<span class="combo-placeholder">Selecione o colaborador...</span>${CHEVRON_DOWN}`;
+    const drop = document.getElementById('saida-combo-drop');
+    if (drop) { drop.classList.remove('open'); saidaBtn.classList.remove('open'); }
+    const srch2 = document.querySelector('#saida-combo .epi-combo-search');
+    if (srch2) srch2.value = '';
+  }
+  /* Reset colaborador devolucao */
+  const devsBtn = document.getElementById('devs-combo-btn');
+  if (devsBtn) {
+    devsBtn.dataset.value = '';
+    devsBtn.innerHTML = `<span class="combo-placeholder">Selecione o colaborador...</span>${CHEVRON_DOWN}`;
+    const drop = document.getElementById('devs-combo-drop');
+    if (drop) { drop.classList.remove('open'); devsBtn.classList.remove('open'); }
+    const srch = document.querySelector('#devs-combo .epi-combo-search');
+    if (srch) srch.value = '';
+  }
+  const devEquipe = document.getElementById('m-devol-equipe');
+  if (devEquipe) devEquipe.value = '';
+  const saidaEquipe = document.getElementById('m-saida-equipe');
+  if (saidaEquipe) saidaEquipe.value = '';
+  applyUserLocationLock();
+  enforceTipoRestricoes();
+  document.getElementById('modal-bg').classList.remove('hidden');
+  document.getElementById('m-tipo').focus();
+}
+
+function closeModal() {
+  document.getElementById('modal-bg').classList.add('hidden');
+  const cd = document.getElementById('custo-total-display');
+  if (cd) cd.textContent = '\u2014';
+  const fi = document.getElementById('m-nf-file');
+  if (fi) fi.value = '';
+  const an = document.getElementById('attach-name');
+  if (an) an.textContent = '';
+}
+
+function onFileSelect(input) {
+  const f = input.files[0];
+  document.getElementById('attach-name').textContent = f ? f.name : '';
+}
+
+function onTipoChange() {
+  const tipoSel         = document.getElementById('m-tipo');
+  let tipo              = tipoSel.value;
+  if (tipo === 'Entrada' && !canUseEntrada()) {
+    tipoSel.value = '';
+    tipo = '';
+    toast('Aviso', 'Entrada indisponivel para seu perfil.', 'warning');
+  }
+  const isEntrada       = tipo === 'Entrada';
+  const isTransfer      = tipo.toLowerCase().startsWith('transfer');
+  const isDevolucao     = tipo === 'Devolução';
+  const isSaida         = tipo === 'Saída';
+  const hasOrigen       = tipo !== '' && !isEntrada;
+
+  document.getElementById('section-entrada').style.display = isEntrada  ? '' : 'none';
+  document.getElementById('section-origem').style.display  = hasOrigen  ? '' : 'none';
+  document.getElementById('section-destino').style.display = isTransfer ? '' : 'none';
+  document.getElementById('section-transportador').style.display = isTransfer ? '' : 'none';
+  // section-solicitacao removed: solicitacao linking is optional
+  document.getElementById('section-devolucao-colab').style.display     = isDevolucao     ? '' : 'none';
+  document.getElementById('section-saida-colab').style.display = isSaida ? '' : 'none';
+  if (isDevolucao)     { populateDevsCombo(); populateDevEquipes(); }
+  if (isSaida) { populateSaidaCombo(); populateSaidaEquipes(); }
+  // populateSolCombo removed (solicitação linking no longer required)
+
+  /* Botão adicionar EPI: ocultar para devolução (itens vem do colaborador) */
+  const btnAdd = document.getElementById('btn-add-item');
+  if (btnAdd) btnAdd.style.display = isDevolucao ? 'none' : '';
+
+  /* Custo unitário por item e custo total: apenas para Entrada */
+  document.querySelectorAll('#itens-list .item-cost-row').forEach(r => r.style.display = isEntrada ? '' : 'none');
+  const custoTotal = document.getElementById('custo-total-display')?.closest('.mfield');
+  if (custoTotal) custoTotal.style.display = isEntrada ? '' : 'none';
+  if (!isEntrada) recalcTotal();
+  if (isEntrada || tipo === 'Ajuste') {
+    document.querySelectorAll('#itens-list .item-card').forEach(card => clearStockWarning(card));
+  }
+  refreshEpiCombos();
+}
+
+/* ════ GERENCIAMENTO DE ITENS ════ */
+let itemCounter = 0;
+
+const CHEVRON_DOWN = `<svg class="combo-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>`;
+
+function openCombo(comboId, ev) {
+  ev && ev.stopPropagation();
+  const drop    = document.getElementById(comboId + '-drop');
+  const trigger = document.getElementById(comboId + '-btn');
+  const isOpen  = drop.classList.contains('open');
+  /* close all other combos */
+  document.querySelectorAll('.epi-combo-dropdown.open').forEach(d => {
+    if (d.id !== comboId + '-drop') {
+      d.classList.remove('open');
+      document.getElementById(d.id.replace('-drop','-btn'))?.classList.remove('open');
+    }
+  });
+  if (isOpen) {
+    drop.classList.remove('open');
+    trigger.classList.remove('open');
+  } else {
+    drop.classList.add('open');
+    trigger.classList.add('open');
+    const srch = drop.querySelector('.epi-combo-search');
+    srch.value = '';
+    filterCombo(comboId);
+    srch.focus();
+  }
+}
+
+function filterCombo(comboId) {
+  const search = document.querySelector('#' + comboId + ' .epi-combo-search').value.toLowerCase();
+  const list   = document.getElementById(comboId + '-list');
+  let any = false;
+  list.querySelectorAll('.epi-combo-item').forEach(item => {
+    const match = item.textContent.toLowerCase().includes(search);
+    item.style.display = match ? '' : 'none';
+    if (match) any = true;
+  });
+  let empty = list.querySelector('.epi-combo-empty');
+  if (!any) {
+    if (!empty) { empty = document.createElement('div'); empty.className = 'epi-combo-empty'; empty.textContent = 'Nenhum EPI encontrado'; list.appendChild(empty); }
+    empty.style.display = '';
+  } else if (empty) { empty.style.display = 'none'; }
+}
+
+function selectCombo(comboId, epiId, label, stock) {
+  const trigger = document.getElementById(comboId + '-btn');
+  trigger.dataset.value = epiId;
+  trigger.innerHTML = `<span class="combo-label">${esc(label)}</span>${CHEVRON_DOWN}`;
+  trigger.classList.remove('open');
+  document.getElementById(comboId + '-drop').classList.remove('open');
+  /* Atualiza o max do campo de quantidade */
+  const card = trigger.closest('.item-card');
+  const qtyInput = card?.querySelector('.item-card-controls input');
+  const tipo = document.getElementById('m-tipo')?.value || '';
+  const empresaId = parseInt(document.getElementById('m-orig-empresa')?.value || '0') || null;
+  const hasOrigin = !!empresaId;
+  const stockNum = stock !== null && stock !== undefined ? parseInt(stock) : null;
+  if (qtyInput) {
+    if (stockNum !== null) {
+      qtyInput.max = stockNum;
+      if (parseInt(qtyInput.value) > stockNum) qtyInput.value = stockNum;
+    } else {
+      qtyInput.removeAttribute('max');
+    }
+  }
+  if (card && tipo && tipo !== 'Entrada' && tipo !== 'Ajuste' && hasOrigin && (stockNum === null || stockNum <= 0)) {
+    showStockWarning(card, epiId, label);
+    openTransferModal(epiId, label);
+  } else if (card) {
+    clearStockWarning(card);
+  }
+}
+
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.epi-combo')) {
+    document.querySelectorAll('.epi-combo-dropdown.open').forEach(d => {
+      d.classList.remove('open');
+      document.getElementById(d.id.replace('-drop','-btn'))?.classList.remove('open');
+    });
+  }
+});
+
+function addItemRow(epiId, qty) {
+  itemCounter++;
+  const id      = 'item-' + itemCounter;
+  const comboId = id + '-combo';
+  const div     = document.createElement('div');
+  div.className = 'item-card';
+  div.id = id;
+
+  const sourceData   = getSourceData();
+  const selectedEpi  = epiId ? sourceData.find(e => e.ID == epiId) : null;
+  const selectedStock = selectedEpi?.ESTOQUE ?? null;
+  const triggerInner = selectedEpi
+    ? `<span class="combo-label">${esc(selectedEpi.DESCRICAO)}${selectedEpi.CA ? ' (CA ' + selectedEpi.CA + ')' : ''}</span>${CHEVRON_DOWN}`
+    : `<span class="combo-placeholder">Selecione o EPI...</span>${CHEVRON_DOWN}`;
+
+  const epiItems = sourceData.map(e => {
+    const stockLabel = e.ESTOQUE !== null ? ' <span style="color:var(--muted-fg);font-size:11px">(estoque: ' + e.ESTOQUE + ')</span>' : '';
+    const label = esc(e.DESCRICAO) + (e.CA ? ' (CA ' + e.CA + ')' : '');
+    const sel   = epiId == e.ID ? ' selected' : '';
+    return '<div class="epi-combo-item' + sel + '" onclick="selectCombo(\'' + comboId + '\',' + e.ID + ',\'' + esc(e.DESCRICAO) + (e.CA ? ' (CA ' + e.CA + ')' : '') + '\',' + (e.ESTOQUE ?? 'null') + ')">' + label + stockLabel + '</div>';
+  }).join('') || '<div class="epi-combo-empty">Nenhum EPI dispon\u00edvel</div>';
+
+  const isAjuste = document.getElementById('m-tipo')?.value === 'Ajuste';
+
+  div.innerHTML = `
+    <div class="epi-combo" id="${comboId}">
+      <button type="button" class="epi-combo-trigger" id="${comboId}-btn" data-value="${epiId||''}" onclick="openCombo('${comboId}',event)">${triggerInner}</button>
+      <div class="epi-combo-dropdown" id="${comboId}-drop">
+        <input class="epi-combo-search" type="text" placeholder="Pesquisar EPI..." oninput="filterCombo('${comboId}')" onclick="event.stopPropagation()">
+        <div class="epi-combo-list" id="${comboId}-list">${epiItems}</div>
+      </div>
+    </div>
+    <div class="item-card-controls">
+      <input class="input" type="number" ${isAjuste ? '' : 'min="1"'} value="${qty!==undefined?qty:1}" ${!isAjuste && selectedStock !== null ? 'max="' + selectedStock + '"' : ''} placeholder="Qtd" aria-label="Quantidade" oninput="recalcTotal()">
+      <span class="unit-lbl">unid.</span>
+      <button class="icon-btn del" title="Remover" onclick="removeItem('${id}')">${TRASH}</button>
+    </div>
+    <div class="item-stock-warning" style="display:none"></div>
+    <div class="item-cost-row" style="display:${document.getElementById('m-tipo')?.value==='Entrada'?'':'none'}">
+      <span class="unit-lbl">R$</span>
+      <input class="input item-custo" type="number" min="0" step="0.01" placeholder="Custo unit." oninput="recalcTotal()">
+      <span class="unit-lbl">/unid.</span>
+    </div>
+  `;
+  document.getElementById('itens-list').appendChild(div);
+}
+
+function showStockWarning(card, epiId, label) {
+  const warn = card.querySelector('.item-stock-warning');
+  if (!warn) return;
+  warn.innerHTML = `Estoque de itens vazio, gostaria de fazer uma solicitacao de transferencia? <button class="btn" style="margin-left:8px;padding:4px 10px;font-size:11px" onclick="openTransferModal(${epiId},'${esc(label)}')">Solicitar transferencia</button>`;
+  warn.style.display = '';
+  card.dataset.stockEmpty = '1';
+}
+
+function clearStockWarning(card) {
+  const warn = card.querySelector('.item-stock-warning');
+  if (!warn) return;
+  warn.style.display = 'none';
+  warn.textContent = '';
+  card.dataset.stockEmpty = '';
+}
+
+function removeItem(id) {
+  const el = document.getElementById(id);
+  const list = document.getElementById('itens-list');
+  if (list.children.length <= 1) {
+    toast('Deve haver ao menos um item na movimentação.', 'warning');
+    return;
+  }
+  el?.remove();
+  recalcTotal();
+}
+
+function recalcTotal() {
+  const rows = document.querySelectorAll('#itens-list .item-card');
+  let total = 0, hasCusto = false;
+  rows.forEach(row => {
+    const qty   = parseFloat(row.querySelector('.item-card-controls input')?.value || '0');
+    const custo = parseFloat(row.querySelector('.item-custo')?.value || '0');
+    if (custo > 0) { total += qty * custo; hasCusto = true; }
+  });
+  const el = document.getElementById('custo-total-display');
+  if (el) el.textContent = hasCusto
+    ? 'R\u00a0' + total.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})
+    : '\u2014';
+}
+
+/* ════ REGISTRAR ════ */
+async function registrar() {
+  const tipo = document.getElementById('m-tipo').value;
+  const obs  = document.getElementById('m-obs').value.trim() || null;
+
+  if (!tipo) { toast('Selecione o tipo da movimentação.', 'warning'); return; }
+
+  if (tipo !== 'Entrada' && tipo !== 'Ajuste') {
+    const blocked = Array.from(document.querySelectorAll('#itens-list .item-card'))
+      .some(card => card.dataset.stockEmpty === '1');
+    if (blocked) {
+      toast('Estoque vazio para um ou mais itens. Solicite transferencia antes de registrar.', 'warning');
+      return;
+    }
+  }
+
+  /* Coleta itens */
+  const rows  = document.querySelectorAll('#itens-list .item-card');
+  const itens = [];
+  let valid = true;
+  rows.forEach((row, idx) => {
+    const trigger  = row.querySelector('.epi-combo-trigger');
+    const inp      = row.querySelector('.item-card-controls input');
+    const custoInp = row.querySelector('.item-custo');
+    /* Dev-cards (devolução) usam data-epi-id em vez de combo */
+    const epiId    = row.dataset.epiId ? parseInt(row.dataset.epiId) : parseInt(trigger?.dataset.value || '0');
+    const qty      = parseInt(inp?.value);
+    const custo    = parseFloat(custoInp?.value || '0') || null;
+    const isItemAjuste = tipo === 'Ajuste';
+    if (!epiId || isNaN(qty) || (!isItemAjuste && qty <= 0)) {
+      toast(`Item ${idx+1}: selecione o EPI e informe uma quantidade válida.`, 'warning');
+      valid = false;
+    } else {
+      if (!isItemAjuste && tipo !== 'Entrada' && estoqueOrigem.length > 0) {
+        const estItem = estoqueOrigem.find(e => e.EPI_ID === epiId);
+        if (estItem && qty > estItem.QUANTIDADE) {
+          toast(`Item ${idx+1}: quantidade (${qty}) excede o estoque disponível na origem (${estItem.QUANTIDADE}).`, 'warning');
+          valid = false;
+          return;
+        }
+      }
+      itens.push({ epi_id: epiId, quantidade: qty, custo_unitario: custo });
+    }
+  });
+  if (!valid) return;
+  if (!itens.length) { toast('Adicione ao menos um EPI.', 'warning'); return; }
+
+    let payload;
+    // Predeclare origin/destination and transfer helpers so validation below can access them
+    let origEmpresa = null, origUnidade = null, origSubunit = null,
+      destEmpresa = null, destUnidade = null, destSubunit = null,
+      transpId = null, solicitacaoId = null, colaboradorId = null;
+
+  if (tipo === 'Entrada') {
+    const entEmpresa = parseInt(document.getElementById('m-entrada-empresa').value    || '0') || null;
+    const entForn    = parseInt(document.getElementById('m-entrada-fornecedor').value || '0') || null;
+    const entNota    = document.getElementById('m-entrada-nota').value.trim() || null;
+
+    payload = {
+      tipo,
+      destino_empresa_id: entEmpresa,
+      fornecedor_id:      entForn,
+      nota_fiscal:        entNota,
+      observacao:         obs,
+      itens,
+    };
+
+    /* Upload NF se selecionada */
+    const fileInput = document.getElementById('m-nf-file');
+    if (fileInput?.files[0]) {
+      const fd = new FormData();
+      fd.append('file', fileInput.files[0]);
+      const ur = await fetch('api/upload-nota.php', { method: 'POST', body: fd });
+      const ud = await ur.json();
+      if (!ur.ok) { toast(ud.error ?? 'Erro ao enviar arquivo.', 'error'); return; }
+      payload.nota_url = ud.url;
+    }
+  } else {
+    origEmpresa = parseInt(document.getElementById('m-orig-empresa').value    || '0') || null;
+    origUnidade = parseInt(document.getElementById('m-orig-unidade').value    || '0') || null;
+    origSubunit = parseInt(document.getElementById('m-orig-subunidade').value || '0') || null;
+    destEmpresa = parseInt(document.getElementById('m-dest-empresa').value    || '0') || null;
+    destUnidade = parseInt(document.getElementById('m-dest-unidade').value    || '0') || null;
+    destSubunit = parseInt(document.getElementById('m-dest-subunidade').value || '0') || null;
+    colaboradorId = tipo === 'Devolução'
+      ? (parseInt(document.getElementById('devs-combo-btn').dataset.value || '0') || null)
+      : tipo === 'Entrega Direta'
+      ? (parseInt(document.getElementById('entdir-combo-btn')?.dataset.value || '0') || null)
+      : tipo === 'Saída'
+      ? (parseInt(document.getElementById('saida-combo-btn')?.dataset.value || '0') || null)
+      : null;
+    transpId = tipo === 'Transferência'
+      ? (parseInt(document.getElementById('transp-combo-btn')?.dataset.value || '0') || null)
+      : null;
+    solicitacaoId = tipo === 'Transferência'
+      ? (parseInt(document.getElementById('sol-combo-btn')?.dataset.value || '0') || null)
+      : null;
+
+    payload = {
+      tipo,
+      origem_empresa_id:     origEmpresa,
+      origem_unidade_id:     origUnidade,
+      origem_subunidade_id:  origSubunit,
+      destino_empresa_id:    destEmpresa,
+      destino_unidade_id:    destUnidade,
+      destino_subunidade_id: destSubunit,
+      colaborador_id:        colaboradorId,
+      solicitacao_id:        solicitacaoId,
+      observacao:            obs,
+      itens,
+    };
+  }
+
+  // Validação cliente: Transferência requer origem e destino
+  if (tipo === 'Transferência') {
+    if (!origEmpresa && !origUnidade && !origSubunit) { toast('Origem é obrigatória para Transferência', 'error'); return; }
+    if (!destEmpresa && !destUnidade && !destSubunit) { toast('Destino é obrigatória para Transferência', 'error'); return; }
+  }
+
+  // If this is a 'Saída', try to determine destinatário and check if they already have similar EPIs in posse
+  if (tipo === 'Saída') {
+    // fallback: if dataset.value wasn't set for some reason, try to resolve by the visible label
+    if (!colaboradorId) {
+      const btn = document.getElementById('saida-combo-btn');
+      const labelText = btn?.querySelector('.combo-label')?.textContent?.trim() || btn?.textContent?.trim() || '';
+      if (labelText) {
+        const found = colaboradoresData.find(c => c.NOME === labelText || (labelText.includes(c.NOME) && c.NOME && c.NOME.length > 3));
+        if (found) {
+          colaboradorId = found.ID || found.id || null;
+          payload.colaborador_id = colaboradorId;
+        }
+      }
+    }
+
+    if (colaboradorId) {
+      try {
+        console.debug('Verificando EPIs em posse para colaborador', colaboradorId, itens);
+        const rPosse = await fetch('api/movimentacoes.php?action=epi_em_posse&colaborador_id=' + colaboradorId);
+        if (rPosse.ok) {
+          const posse = await rPosse.json();
+          const duplicates = itens.filter(it => posse.some(p => p.EPI_ID == it.epi_id));
+          if (duplicates.length > 0) {
+            const ok = confirm(`Este funcionário já possui ${duplicates.length} EPI(s) similares em posse.\nDeseja gerar devolução automática e prosseguir com a entrega?\nOK = gerar devolução (termo de entrega + termo de devolução) — Cancel = registrar apenas a entrega.`);
+            payload.auto_devolver = !!ok;
+          }
+        }
+      } catch (e) {
+        /* não bloqueia o envio se a checagem falhar */
+        console.warn('Erro ao checar EPIs em posse', e);
+      }
+    }
+  }
+
+  // Validação: solicitacao não é mais obrigatória para Transferência
+
+  const r = await fetch('api/movimentacoes.php?action=registrar', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(payload),
+  });
+  const d = await r.json();
+  if (!r.ok) { toast(d.error ?? 'Erro ao registrar.', 'error'); return; }
+
+  closeModal();
+  loadMovs();
+
+  /* Entrega Direta → abre o termo gerado automaticamente */
+  if (tipo === 'Entrega Direta' && d.termo_id) {
+    if (d.devolucao_id) {
+      toast('EPI duplicado detectado — devolução automática gerada!', 'warning');
+      setTimeout(() => window.open('api/termo-devolucao-print.php?id=' + d.devolucao_id, '_blank'), 400);
+      setTimeout(() => window.open('api/termo-print.php?id=' + d.termo_id, '_blank'), 1200);
+    } else {
+      // fallback: tenta localizar uma devolução automática criada logo após a entrega
+      if (colaboradorId) {
+        try {
+          const rf = await fetch('api/movimentacoes.php?action=ultima_devolucao&colaborador_id=' + colaboradorId + '&minutes=2');
+          if (rf.ok) {
+            const rd = await rf.json();
+            if (rd.id) {
+              toast('EPI duplicado detectado — devolução automática gerada!', 'warning');
+              setTimeout(() => window.open('api/termo-devolucao-print.php?id=' + rd.id, '_blank'), 400);
+              setTimeout(() => window.open('api/termo-print.php?id=' + d.termo_id, '_blank'), 1200);
+              return;
+            }
+          }
+        } catch (e) { console.warn('Fallback ultima_devolucao falhou', e); }
+      }
+      toast('Entrega registrada! Abrindo termo...', 'success');
+      setTimeout(() => window.open('api/termo-print.php?id=' + d.termo_id, '_blank'), 600);
+    }
+    return;
+  }
+
+  /* Saída → encaminha termo para assinatura via Unico */
+  if (tipo === 'Saída' && d.termo_id) {
+    if (d.devolucao_id) {
+      toast('EPI duplicado detectado — devolução automática gerada!', 'warning');
+      setTimeout(() => window.open('api/termo-devolucao-print.php?id=' + d.devolucao_id, '_blank'), 400);
+    } else if (colaboradorId) {
+      // fallback: verifica devolução automática criada logo após a saída
+      try {
+        const rf = await fetch('api/movimentacoes.php?action=ultima_devolucao&colaborador_id=' + colaboradorId + '&minutes=2');
+        if (rf.ok) {
+          const rd = await rf.json();
+          if (rd.id) {
+            toast('EPI duplicado detectado — devolução automática gerada!', 'warning');
+            setTimeout(() => window.open('api/termo-devolucao-print.php?id=' + rd.id, '_blank'), 400);
+          }
+        }
+      } catch (e) { console.warn('Fallback ultima_devolucao falhou', e); }
+    }
+    // Encaminha para assinatura via Unico
+    const loadingToast = toastLoading('Encaminhando para o Colaborador...');
+    try {
+      const ru = await fetch('api/unico.php?action=enviar', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ termo_id: d.termo_id })
+      });
+      const du = await ru.json();
+      dismissToast(loadingToast);
+      if (du.success && !du.already_sent) {
+        toast('Enviado!', 'success');
+      } else if (du.already_sent) {
+        toast('Já enviado anteriormente.', 'success');
+      } else {
+        toast('Saída registrada! Falha ao enviar: ' + (du.error || 'verifique o servidor Unico.'), 'warning');
+      }
+    } catch(e) {
+      dismissToast(loadingToast);
+      toast('Saída registrada! Verifique o envio para o Colaborador.', 'warning');
+    }
+    return;
+  }
+
+  /* Toast de devolução */
+  if (tipo === 'Devolução') {
+    toastDevolucao(d.id);
+  }
+
+  if (tipo === 'Transferência') {
+    let notaId = null;
+    if (transpId) {
+      try {
+        const rNota = await fetch('api/notas-transporte.php?action=criar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transferencia_id: d.id, colaborador_id: transpId }),
+        });
+        const dNota = await rNota.json();
+        if (rNota.ok && dNota.id) notaId = dNota.id;
+        else toast('Transferência registrada, mas erro ao gerar nota: ' + (dNota.error ?? ''), 'warning');
+      } catch (e) {
+        toast('Transferência registrada, mas erro ao gerar nota.', 'warning');
+      }
+    }
+    // Mostrar toast de confirmação com opção de ver/gerar nota
+    toastNota(notaId, d.id, transpId);
+  } else {
+    toast('Movimentação registrada com sucesso.', 'success');
+  }
+}
+
+/* ════ EXCLUIR ════ */
+async function excluir(id) {
+  const m = movsData.find(x => x.ID === id);
+  const tipo = m?.TIPO ?? 'esta movimentação';
+  if (!confirm(`Excluir "${tipo}" de ${m?.DATA_TRANSFERENCIA ? formatDate(m.DATA_TRANSFERENCIA) : 'data desconhecida'}?\nOs itens vinculados também serão removidos.`)) return;
+  const r = await fetch('api/movimentacoes.php?action=deletar', {
+    method:'DELETE', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({id}),
+  });
+  const d = await r.json();
+  if (!r.ok) { toast(d.error ?? 'Erro ao excluir.', 'error'); return; }
+  toast('Movimentação excluída.', 'success');
+  loadMovs();
+}
+
+async function confirmarEntregaTransf(id) {
+  if (!confirm('Confirmar entrega da transferência #' + id + '?')) return;
+  const r = await fetch('api/movimentacoes.php?action=confirmar_entrega', {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({id})
+  });
+  const d = await r.json();
+  if (d.success) { toast('Entrega confirmada! ✅', 'success'); loadMovs(); }
+  else toast(d.error ?? 'Erro ao confirmar.', 'error');
+}
+
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+
+/* Toast Devolução de EPI */
+function toastDevolucao(id) {
+  const url = 'api/termo-devolucao-print.php?id=' + id;
+  const t = document.createElement('div');
+  Object.assign(t.style, {
+    position:'fixed', bottom:'24px', right:'24px', zIndex:'9999',
+    background:'#1a3c2e', color:'#fff', borderRadius:'12px',
+    padding:'14px 18px', fontSize:'14px', boxShadow:'0 8px 32px rgba(0,0,0,.22)',
+    display:'flex', alignItems:'center', gap:'12px', maxWidth:'380px', lineHeight:'1.4'
+  });
+  t.innerHTML = `<span>📝 Devolução de EPI gerada!<br><b>Gostaria de visualizar o termo?</b></span>
+    <a href="${url}" target="_blank" style="background:rgba(255,255,255,.2);border-radius:8px;padding:6px 12px;color:#fff;text-decoration:none;font-weight:600;white-space:nowrap;flex-shrink:0">Ver Termo</a>
+    <button onclick="this.closest('div').remove()" style="background:none;border:none;color:rgba(255,255,255,.7);cursor:pointer;font-size:18px;line-height:1;padding:0;flex-shrink:0">×</button>`;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 12000);
+}
+
+/* Toast com opção de ver/gerar nota de transporte */
+function toastNota(notaId, transferenciaId, colaboradorId) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.style.cssText = 'max-width:380px;line-height:1.5;padding:12px 14px;border-radius:10px;background:#111;color:#fff;box-shadow:0 8px 28px rgba(0,0,0,.25);';
+  const msg = 'Cadastrado com Sucesso! <br>';
+  if (notaId) {
+    t.innerHTML = `${msg}<a href="api/nota-print.php?id=${notaId}" target="_blank" style="color:#a3e635;font-weight:700;text-decoration:underline">Gostaria de ver a nota? →</a>`;
+    document.body.appendChild(t);
+    requestAnimationFrame(() => t.classList.add('show'));
+    setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 8000);
+    return;
+  }
+
+  // Sem nota ainda: mostrar botão que gera a nota ao clicar
+  t.innerHTML = `${msg}<div style="display:flex;gap:10px;align-items:center;margin-top:8px">
+    <button id="btn-gerar-nota" style="background:#a3e635;color:#072f10;border:none;border-radius:8px;padding:8px 12px;font-weight:700;cursor:pointer">Gerar / Ver Nota</button>
+    <button id="btn-fechar-nota" style="background:transparent;border:none;color:#ddd;cursor:pointer;font-size:18px">×</button>
+  </div>`;
+  document.body.appendChild(t);
+  requestAnimationFrame(() => t.classList.add('show'));
+
+  const btn = t.querySelector('#btn-gerar-nota');
+  const closeBtn = t.querySelector('#btn-fechar-nota');
+  if (btn) {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.textContent = 'Gerando…';
+      try {
+        const r = await fetch('api/notas-transporte.php?action=criar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transferencia_id: transferenciaId, colaborador_id: colaboradorId })
+        });
+        const jd = await r.json();
+        if (r.ok && jd.id) {
+          window.open('api/nota-print.php?id=' + jd.id, '_blank');
+          t.remove();
+          return;
+        }
+        btn.disabled = false; btn.textContent = 'Gerar / Ver Nota';
+        alert('Erro ao gerar nota: ' + (jd.error ?? ''));
+      } catch (e) {
+        btn.disabled = false; btn.textContent = 'Gerar / Ver Nota';
+        alert('Erro ao gerar nota.');
+      }
+    });
+  }
+  if (closeBtn) closeBtn.addEventListener('click', () => t.remove());
+}
+</script>
+</body>
+</html>

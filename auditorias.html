@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Auditorias — EPI Manager</title>
+<link rel="stylesheet" href="css/styles.css">
+<style>
+/* ── Cascata localização ── */
+.loc-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding:14px 16px;background:#fff;border:1px solid var(--border);border-radius:12px;margin-bottom:16px}
+.loc-group{display:flex;flex-direction:column;gap:4px}
+.loc-group label{font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em}
+.loc-sep{width:1px;height:36px;background:var(--border);flex-shrink:0;align-self:flex-end;margin:0 2px}
+
+/* ── Stage cards ── */
+#stage-inicio,#stage-auditoria,#stage-comparativo{transition:opacity .2s}
+
+/* ── Tabela de auditoria ── */
+.audit-table{width:100%;border-collapse:collapse}
+.audit-table th{text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted-fg);padding:9px 12px;border-bottom:2px solid var(--border)}
+.audit-table td{padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
+.audit-table tbody tr:last-child td{border-bottom:none}
+.audit-table tbody tr:hover td{background:#f8fafc}
+.audit-qty{width:80px;text-align:center;font-family:monospace}
+
+/* ── Comparativo ── */
+.comp-ok   td{background:#f0fdf4}
+.comp-alto td{background:#fef9c3}
+.comp-baixo td{background:#fef2f2}
+.diff-ok   {color:#15803d;font-weight:700}
+.diff-pos  {color:#b45309;font-weight:700}
+.diff-neg  {color:#dc2626;font-weight:700}
+
+/* ── Banner de auditoria ativa ── */
+.audit-banner{display:flex;align-items:center;gap:14px;padding:12px 16px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:12px;margin-bottom:16px}
+.audit-banner .banner-icon{font-size:22px}
+.audit-banner .banner-text{flex:1;font-size:14px;font-weight:600;color:#15803d}
+.audit-banner .banner-loc{font-size:12px;color:#166534;font-weight:400;margin-top:2px}
+
+/* ── KPIs ── */
+.aud-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+@media(max-width:680px){.aud-kpis{grid-template-columns:1fr 1fr}}
+
+/* ── Modal comparativo ── */
+.cmp-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.cmp-modal-bg.hidden{display:none}
+.cmp-modal{background:#fff;border-radius:16px;width:100%;max-width:900px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.25);overflow:hidden}
+.cmp-hdr{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.cmp-hdr h3{margin:0;font-size:16px;font-weight:700}
+.cmp-hdr .close-btn{background:none;border:none;cursor:pointer;font-size:18px;padding:4px 8px;border-radius:6px;color:var(--muted-fg)}
+.cmp-hdr .close-btn:hover{background:#f1f5f9}
+.cmp-body{flex:1;overflow-y:auto;padding:20px 24px}
+.cmp-ftr{padding:14px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;flex-shrink:0}
+
+/* ── Summary badges ── */
+.sum-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.sum-badge{padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600}
+.sum-ok   {background:#dcfce7;color:#15803d}
+.sum-pos  {background:#fef9c3;color:#a16207}
+.sum-neg  {background:#fee2e2;color:#dc2626}
+
+/* ── Search ── */
+.aud-search{margin-bottom:10px}
+
+/* Combobox pesquisável para Adicionar EPI */
+.combobox{position:relative;display:inline-block}
+.combobox .combo-input{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:#fff}
+.combo-list{position:absolute;left:0;right:0;top:100%;background:#fff;border:1px solid var(--border);border-radius:8px;margin-top:6px;max-height:260px;overflow:auto;z-index:1200;box-shadow:0 6px 24px rgba(0,0,0,.12)}
+.combo-list.hidden{display:none}
+.combo-item{padding:8px 10px;cursor:pointer;font-size:13px;border-bottom:1px solid #f3f4f6}
+.combo-item:last-child{border-bottom:none}
+.combo-item:hover{background:#f1f5f9}
+.combo-item .meta{display:block;font-size:12px;color:var(--muted-fg)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="page-head">
+    <div><h1>Auditorias de Estoque</h1><p>Confira e ajuste o estoque físico por localização</p></div>
+  </div>
+
+  <!-- ░░ Stage 1: Seleção de localização ░░ -->
+  <div id="stage-inicio">
+    <div class="card" style="padding:24px">
+      <p style="font-size:14px;font-weight:600;margin-bottom:14px;color:var(--fg)">Selecione a localização para iniciar a auditoria:</p>
+      <div class="loc-bar" style="margin-bottom:20px">
+        <div class="loc-group">
+          <label>Empresa *</label>
+          <select class="select" id="f-empresa" style="min-width:180px" onchange="onEmpresaChange()">
+            <option value="">Selecione...</option>
+          </select>
+        </div>
+        <div class="loc-sep"></div>
+        <div class="loc-group" id="grp-unidade" style="display:none">
+          <label>Unidade</label>
+          <select class="select" id="f-unidade" style="min-width:160px" onchange="onUnidadeChange()">
+            <option value="">Todas</option>
+          </select>
+        </div>
+        <div class="loc-group" id="grp-subunidade" style="display:none">
+          <label>Subunidade</label>
+          <select class="select" id="f-subunidade" style="min-width:150px">
+            <option value="">Todas</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn accent" style="min-width:160px" onclick="iniciarAuditoria()">
+        &#128269; Iniciar Auditoria
+      </button>
+    </div>
+  </div>
+
+  <!-- ░░ Stage 2: Auditoria em andamento ░░ -->
+  <div id="stage-auditoria" style="display:none">
+
+    <div class="audit-banner">
+      <span class="banner-icon">&#128203;</span>
+      <div>
+        <div class="banner-text">Auditoria em andamento</div>
+        <div class="banner-loc" id="banner-loc">—</div>
+      </div>
+      <button class="btn outline" onclick="cancelarAuditoria()" style="font-size:12px">Cancelar</button>
+    </div>
+
+    <div class="aud-kpis">
+      <div class="kpi"><div class="lbl">Itens</div><div class="val" id="k-total">—</div></div>
+      <div class="kpi"><div class="lbl">Contados</div><div class="val" id="k-contados" style="color:var(--primary)">0</div></div>
+      <div class="kpi"><div class="lbl">Pendentes</div><div class="val" id="k-pendentes">—</div></div>
+      <div class="kpi"><div class="lbl">Progresso</div><div class="val" id="k-pct">0%</div></div>
+    </div>
+
+    <div class="card" style="padding:16px">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+        <input class="input aud-search" id="busca-epi" type="text" placeholder="Filtrar EPI..."
+               style="max-width:280px" oninput="filtrarTabela()">
+        <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" id="chk-pendentes" onchange="filtrarTabela()"> Mostrar só pendentes
+        </label>
+
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="combobox" style="min-width:260px">
+            <input id="f-adicionar-epi-input" class="combo-input" placeholder="Adicionar EPI..." autocomplete="off">
+            <input type="hidden" id="f-adicionar-epi-id">
+            <div id="f-adicionar-epi-list" class="combo-list hidden"></div>
+          </div>
+        </div>
+
+        <button class="btn outline" style="margin-left:auto" onclick="zerarTodos()">Zerar todos</button>
+      </div>
+
+      <div style="overflow-x:auto">
+        <table class="audit-table">
+          <thead>
+            <tr>
+              <th>EPI</th>
+              <th style="width:80px">CA</th>
+              <th style="width:100px;text-align:right">Estoque banco</th>
+              <th style="width:110px;text-align:center">Contagem &#10003;</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-audit">
+            <tr><td colspan="4" style="text-align:center;color:var(--muted-fg);padding:40px">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;margin-top:14px">
+      <button class="btn accent" style="min-width:180px" onclick="finalizarAuditoria()">
+        &#10003; Finalizar Auditoria
+      </button>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- ░░ Modal Comparativo ░░ -->
+<div class="cmp-modal-bg hidden" id="cmp-modal-bg">
+  <div class="cmp-modal">
+    <div class="cmp-hdr">
+      <h3>&#128202; Comparativo de Auditoria</h3>
+      <button class="close-btn" onclick="fecharComparativo()">&#x2715;</button>
+    </div>
+    <div class="cmp-body">
+      <div class="sum-row" id="cmp-summary"></div>
+      <div style="overflow-x:auto">
+        <table class="audit-table">
+          <thead>
+            <tr>
+              <th>EPI</th>
+              <th>CA</th>
+              <th style="text-align:right">Banco</th>
+              <th style="text-align:right">Contado</th>
+              <th style="text-align:right">Diferença</th>
+              <th style="text-align:center">Status</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-cmp"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:14px">
+        <label style="font-size:12px;font-weight:600;color:var(--muted-fg);display:block;margin-bottom:4px">OBSERVAÇÃO</label>
+        <textarea class="input" id="cmp-obs" rows="2" style="width:100%;resize:vertical" placeholder="Opcional..."></textarea>
+      </div>
+    </div>
+    <div class="cmp-ftr">
+      <button class="btn outline" id="btn-exportar-pdf" onclick="exportarPDF()">
+        &#128196; Exportar PDF
+      </button>
+      <button class="btn accent" id="btn-salvar-banco" onclick="salvarNoBanco()">
+        &#128190; Salvar no banco
+      </button>
+    </div>
+  </div>
+</div>
+
+<script defer src="js/config.js"></script>
+<script defer src="js/auth.js"></script>
+<script defer src="js/utils.js"></script>
+<script defer src="js/_layout.js"></script>
+<script>
+/* ── Dados base ── */
+let empresasData    = [];
+let unidadesData    = [];
+let subunidadesData = [];
+let estoqueAudit    = []; /* itens do banco para a localização selecionada */
+let auditDados      = {}; /* { empresaId, unidadeId, subunidadeId, labels } */
+let allEpisData     = []; /* lista global de EPIs (para o dropdown Adicionar EPI) */
+
+function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+
+/* ────────────────── AUTH ────────────────── */
+document.addEventListener('authReady', async () => {
+  await carregarBaseData();
+});
+
+async function carregarBaseData() {
+  const [re, ru, rs, repis] = await Promise.all([
+    fetch('api/auditorias.php?action=empresas'),
+    fetch('api/auditorias.php?action=unidades'),
+    fetch('api/auditorias.php?action=subunidades'),
+    fetch('api/epis.php'),
+  ]);
+  empresasData    = re.ok ? await re.json() : [];
+  unidadesData    = ru.ok ? await ru.json() : [];
+  subunidadesData = rs.ok ? await rs.json() : [];
+  allEpisData     = repis.ok ? await repis.json() : [];
+  popularEmpresas();
+  // Popular unidades para o estado inicial (sem empresa selecionada)
+  onEmpresaChange();
+  // Preencher dropdown de adicionar EPI
+  populateEpiDropdown();
+}
+
+/* ────────────────── CASCATA ────────────────── */
+function popularEmpresas() {
+  const sel = document.getElementById('f-empresa');
+  sel.innerHTML = '<option value="">Selecione...</option>';
+  empresasData.forEach(e => {
+    const o = document.createElement('option');
+    o.value = e.ID_EMPRESA; o.textContent = e.RAZAO_SOCIAL; sel.appendChild(o);
+  });
+}
+
+function onEmpresaChange() {
+  const empId = parseInt(document.getElementById('f-empresa').value || '0');
+  const grpUn = document.getElementById('grp-unidade');
+  const selUn = document.getElementById('f-unidade');
+  const grpSu = document.getElementById('grp-subunidade');
+  const selSu = document.getElementById('f-subunidade');
+
+  selUn.innerHTML = '<option value="">Todas</option>';
+  selSu.innerHTML = '<option value="">Todas</option>';
+  grpSu.style.display = 'none';
+
+  // Se nenhuma empresa selecionada, popular com UNIDADES que não possuem EMPRESA (EMPRESA_ID NULL)
+  if (!empId) {
+    const unidsNoEmpresa = unidadesData.filter(u => u.EMPRESA_ID == null || u.EMPRESA_ID === '');
+    if (!unidsNoEmpresa.length) { grpUn.style.display = 'none'; return; }
+    unidsNoEmpresa.forEach(u => {
+      const o = document.createElement('option');
+      o.value = u.ID_UNIDADE; o.textContent = u.NOME + ' — (sem empresa)'; selUn.appendChild(o);
+    });
+    grpUn.style.display = '';
+    return;
+  }
+
+  const unids = unidadesData.filter(u => parseInt(u.EMPRESA_ID) === empId);
+  if (!unids.length) { grpUn.style.display = 'none'; return; }
+  unids.forEach(u => {
+    const o = document.createElement('option');
+    o.value = u.ID_UNIDADE; o.textContent = u.NOME; selUn.appendChild(o);
+  });
+  grpUn.style.display = '';
+}
+
+function onUnidadeChange() {
+  const unId = parseInt(document.getElementById('f-unidade').value || '0');
+  const grpSu = document.getElementById('grp-subunidade');
+  const selSu = document.getElementById('f-subunidade');
+  selSu.innerHTML = '<option value="">Todas</option>';
+  if (!unId) { grpSu.style.display = 'none'; return; }
+  const subs = subunidadesData.filter(s => parseInt(s.UNIDADE_ID) === unId);
+  if (!subs.length) { grpSu.style.display = 'none'; return; }
+  subs.forEach(s => {
+    const o = document.createElement('option');
+    o.value = s.ID_SUBUNIDADE; o.textContent = s.NOME; selSu.appendChild(o);
+  });
+  grpSu.style.display = '';
+}
+
+/* ────────────────── ADICIONAR EPI (dropdown) ────────────────── */
+function populateEpiDropdown() {
+  const input = document.getElementById('f-adicionar-epi-input');
+  const hid   = document.getElementById('f-adicionar-epi-id');
+  const list  = document.getElementById('f-adicionar-epi-list');
+  if (!input || !list) return;
+  list.innerHTML = '';
+  const items = (allEpisData || []).slice().sort((a, b) => (a.DESCRICAO || '').localeCompare(b.DESCRICAO || ''));
+  items.forEach(e => {
+    const it = document.createElement('div');
+    it.className = 'combo-item';
+    it.dataset.id = e.ID;
+    const label = (e.DESCRICAO || '') + (e.CODIGO ? ' #' + e.CODIGO : '') + (e.CA ? ' (CA ' + e.CA + ')' : '');
+    it.innerHTML = '<div class="label">' + esc(e.DESCRICAO || '') + '</div>' + (e.CODIGO || e.CA ? ('<div class="meta">' + (e.CODIGO ? '#' + esc(e.CODIGO) : '') + (e.CA ? ' CA ' + esc(e.CA) : '') + '</div>') : '');
+    it.addEventListener('click', () => {
+      // Ao clicar no item, adiciona automaticamente à auditoria com contagem pendente
+      list.classList.add('hidden');
+      input.value = '';
+      adicionarEPIById(parseInt(e.ID));
+    });
+    list.appendChild(it);
+  });
+
+  // Filtragem simples ao digitar
+  let filterFn = () => {
+    const q = (input.value || '').trim().toLowerCase();
+    Array.from(list.children).forEach(ch => {
+      const txt = ch.textContent.toLowerCase();
+      ch.style.display = q ? (txt.indexOf(q) !== -1 ? '' : 'none') : '';
+    });
+    list.classList.remove('hidden');
+  };
+
+  input.removeEventListener('input', filterFn);
+  input.addEventListener('input', filterFn);
+  input.addEventListener('focus', () => { list.classList.remove('hidden'); filterFn(); });
+  input.addEventListener('blur', () => { setTimeout(() => list.classList.add('hidden'), 150); });
+}
+
+function adicionarEPI() {
+  const hid  = document.getElementById('f-adicionar-epi-id');
+  const id = parseInt(hid.value || '0');
+  if (!id) { toast('Selecione um EPI para adicionar', 'warning'); return; }
+  adicionarEPIById(id);
+}
+
+function adicionarEPIById(id) {
+  const epi = (allEpisData || []).find(x => parseInt(x.ID) === id);
+  if (!epi) { toast('EPI não encontrado', 'error'); return; }
+
+  // Se já existir na lista, apenas foca o campo de contagem
+  const existed = estoqueAudit.find(it => parseInt(it.EPI_ID || it.ID || 0) === id);
+  if (existed) {
+    toast('EPI já presente na lista. Atualize a contagem na linha correspondente.', 'info');
+    const idx = estoqueAudit.indexOf(existed);
+    setTimeout(() => { const el = document.getElementById('qty-' + idx); if (el) el.focus(); }, 60);
+    return;
+  }
+
+  const newItem = {
+    ID_ESTOQUE: null,
+    EPI_ID: parseInt(epi.ID),
+    DESCRICAO: epi.DESCRICAO,
+    CA: epi.CA,
+    CODIGO: epi.CODIGO,
+    QUANTIDADE: (epi.QUANTIDADE !== undefined && epi.QUANTIDADE !== null) ? parseInt(epi.QUANTIDADE) : 0,
+    CONTADA: null
+  };
+  estoqueAudit.push(newItem);
+  renderizarTabela();
+  atualizarKPIs();
+  toast('EPI adicionado à auditoria (contagem pendente)', 'success');
+  setTimeout(() => { const newIndex = estoqueAudit.length - 1; const el = document.getElementById('qty-' + newIndex); if (el) el.focus(); }, 60);
+}
+
+/* ────────────────── INICIAR ────────────────── */
+async function iniciarAuditoria() {
+  const empresaRaw    = document.getElementById('f-empresa').value;
+  const empresaId     = empresaRaw ? parseInt(empresaRaw) : null;
+  const unidadeId     = parseInt(document.getElementById('f-unidade').value    || '0') || null;
+  const subunidadeId  = parseInt(document.getElementById('f-subunidade').value || '0') || null;
+
+  // Permitir auditoria de unidades "sem empresa": exige pelo menos empresa ou unidade selecionada
+  if (!empresaId && !unidadeId) { toast('Selecione a empresa ou escolha uma unidade para iniciar a auditoria.', 'warning'); return; }
+
+  const btn = document.querySelector('#stage-inicio .btn.accent');
+  if (btn) { btn.disabled = true; btn.textContent = 'Carregando...'; }
+
+  try {
+    const qs = new URLSearchParams({ action:'estoque' });
+    if (empresaId !== null) qs.append('empresa_id', empresaId);
+    if (unidadeId)    qs.append('unidade_id',    unidadeId);
+    if (subunidadeId) qs.append('subunidade_id', subunidadeId);
+
+    const r = await fetch('api/auditorias.php?' + qs);
+    if (!r.ok) { const e = await r.json(); throw new Error(e.error ?? 'Erro ao carregar estoque'); }
+    estoqueAudit = await r.json();
+
+    if (!estoqueAudit.length) {
+      toast('Nenhum item em estoque encontrado para esta localização.', 'warning');
+      if (btn) { btn.disabled = false; btn.textContent = '🔍 Iniciar Auditoria'; }
+      return;
+    }
+
+    /* Monta labels */
+    const empNome  = empresasData.find(e => e.ID_EMPRESA == empresaId)?.RAZAO_SOCIAL ?? '';
+    const unNome   = unidadeId    ? unidadesData.find(u => u.ID_UNIDADE == unidadeId)?.NOME : null;
+    const subNome  = subunidadeId ? subunidadesData.find(s => s.ID_SUBUNIDADE == subunidadeId)?.NOME : null;
+    const locLabel = [empNome, unNome, subNome].filter(Boolean).join(' › ');
+
+    auditDados = { empresaId, unidadeId, subunidadeId, locLabel };
+
+    document.getElementById('banner-loc').textContent = locLabel;
+    document.getElementById('stage-inicio').style.display    = 'none';
+    document.getElementById('stage-auditoria').style.display = '';
+
+    renderizarTabela();
+    atualizarKPIs();
+
+  } catch(err) {
+    toast(err.message ?? 'Erro ao iniciar auditoria.', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '🔍 Iniciar Auditoria'; }
+  }
+}
+
+/* ────────────────── TABELA DE CONTAGEM ────────────────── */
+function renderizarTabela() {
+  const tb = document.getElementById('tbody-audit');
+  if (!estoqueAudit.length) {
+    tb.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted-fg);padding:40px">Nenhum item encontrado.</td></tr>';
+    return;
+  }
+  tb.innerHTML = estoqueAudit.map((item, idx) => `
+    <tr data-idx="${idx}" data-descricao="${esc(item.DESCRICAO).toLowerCase()}">
+      <td>${esc(item.DESCRICAO)}${item.CODIGO ? `<span style="font-size:11px;color:var(--muted-fg);margin-left:6px">#${esc(item.CODIGO)}</span>` : ''}</td>
+      <td style="color:var(--muted-fg)">${esc(item.CA ?? '—')}</td>
+      <td style="text-align:right;font-weight:600;font-family:monospace">${item.QUANTIDADE}</td>
+      <td style="text-align:center">
+         <input class="input audit-qty" type="number" min="0" id="qty-${idx}"
+           value="${item.CONTADA !== undefined && item.CONTADA !== null ? item.CONTADA : ''}" placeholder="—"
+           oninput="onQtyInput(${idx}, this)"
+           aria-label="Quantidade contada de ${esc(item.DESCRICAO)}">
+      </td>
+    </tr>
+  `).join('');
+}
+
+function onQtyInput(idx, inp) {
+  atualizarKPIs();
+}
+
+function atualizarKPIs() {
+  const total     = estoqueAudit.length;
+  let contados    = 0;
+  estoqueAudit.forEach((_, idx) => {
+    const v = document.getElementById('qty-' + idx)?.value;
+    if (v !== '' && v !== null && v !== undefined) contados++;
+  });
+  const pendentes = total - contados;
+  const pct       = total > 0 ? Math.round((contados / total) * 100) : 0;
+
+  document.getElementById('k-total').textContent     = total;
+  document.getElementById('k-contados').textContent  = contados;
+  document.getElementById('k-pendentes').textContent = pendentes;
+  document.getElementById('k-pct').textContent       = pct + '%';
+}
+
+function filtrarTabela() {
+  const q         = document.getElementById('busca-epi').value.toLowerCase();
+  const soRest    = document.getElementById('chk-pendentes').checked;
+  document.querySelectorAll('#tbody-audit tr[data-idx]').forEach(tr => {
+    const idx      = parseInt(tr.dataset.idx);
+    const descricao = tr.dataset.descricao ?? '';
+    const qty       = document.getElementById('qty-' + idx)?.value;
+    const pendente  = (qty === '' || qty === null || qty === undefined);
+    const matchQ    = !q || descricao.includes(q);
+    const matchP    = !soRest || pendente;
+    tr.style.display = (matchQ && matchP) ? '' : 'none';
+  });
+}
+
+function zerarTodos() {
+  estoqueAudit.forEach((_, idx) => {
+    const inp = document.getElementById('qty-' + idx);
+    if (inp) inp.value = '0';
+  });
+  atualizarKPIs();
+}
+
+/* ────────────────── FINALIZAR ────────────────── */
+function finalizarAuditoria() {
+  /* Verifica se há pelo menos um contado */
+  let algumContado = false;
+  estoqueAudit.forEach((_, idx) => {
+    const v = document.getElementById('qty-' + idx)?.value;
+    if (v !== '' && v !== null && v !== undefined) algumContado = true;
+  });
+  if (!algumContado) { toast('Registre a contagem de pelo menos um item antes de finalizar.', 'warning'); return; }
+
+  /* Monta tabela comparativa */
+  const tbCmp   = document.getElementById('tbody-cmp');
+  let okCount   = 0, posCount = 0, negCount = 0;
+
+  tbCmp.innerHTML = estoqueAudit.map((item, idx) => {
+    const v        = document.getElementById('qty-' + idx)?.value;
+    const contado  = (v !== '' && v !== undefined && v !== null) ? parseInt(v) : null;
+    const banco    = item.QUANTIDADE;
+    const diff     = contado !== null ? contado - banco : null;
+
+    let rowCls = '', diffCls = 'diff-ok', diffTxt = '—', statusTxt = '—';
+    if (contado === null) {
+      rowCls  = ''; diffCls = ''; diffTxt = 'N/A'; statusTxt = '&#9900; Não contado';
+    } else if (diff === 0) {
+      rowCls = 'comp-ok'; diffCls = 'diff-ok'; diffTxt = '0'; statusTxt = '&#10003; OK'; okCount++;
+    } else if (diff > 0) {
+      rowCls = 'comp-alto'; diffCls = 'diff-pos'; diffTxt = '+' + diff; statusTxt = '&#9650; Sobra'; posCount++;
+    } else {
+      rowCls = 'comp-baixo'; diffCls = 'diff-neg'; diffTxt = String(diff); statusTxt = '&#9660; Falta'; negCount++;
+    }
+
+    return `<tr class="${rowCls}" data-epi-id="${item.EPI_ID}" data-qtd-banco="${banco}" data-qtd-contada="${contado ?? ''}">
+      <td>${esc(item.DESCRICAO)}</td>
+      <td style="color:var(--muted-fg)">${esc(item.CA ?? '—')}</td>
+      <td style="text-align:right;font-family:monospace">${banco}</td>
+      <td style="text-align:right;font-family:monospace;font-weight:600">${contado !== null ? contado : '<span style="color:var(--muted-fg)">—</span>'}</td>
+      <td style="text-align:right" class="${diffCls}">${diffTxt}</td>
+      <td style="text-align:center;font-size:12px">${statusTxt}</td>
+    </tr>`;
+  }).join('');
+
+  /* Summary */
+  const locLabel = auditDados.locLabel ?? '';
+  document.getElementById('cmp-summary').innerHTML = `
+    <span class="sum-badge sum-ok">&#10003; OK: ${okCount}</span>
+    <span class="sum-badge sum-pos">&#9650; Sobra: ${posCount}</span>
+    <span class="sum-badge sum-neg">&#9660; Falta: ${negCount}</span>
+    <span style="font-size:12px;color:var(--muted-fg);align-self:center;margin-left:4px">${esc(locLabel)}</span>
+  `;
+
+  document.getElementById('cmp-modal-bg').classList.remove('hidden');
+}
+
+function fecharComparativo() {
+  document.getElementById('cmp-modal-bg').classList.add('hidden');
+}
+
+/* ────────────────── SALVAR NO BANCO ────────────────── */
+async function salvarNoBanco() {
+  const btn = document.getElementById('btn-salvar-banco');
+  const obs = document.getElementById('cmp-obs').value.trim() || null;
+
+  if (!confirm('Confirma a gravação das quantidades contadas no banco de dados?\nEsta ação irá sobrescrever o estoque atual da localização selecionada.')) return;
+
+  /* Coleta itens apenas dos contados */
+  const rows  = document.querySelectorAll('#tbody-cmp tr[data-epi-id]');
+  const itens = [];
+  rows.forEach(tr => {
+    const epiId    = parseInt(tr.dataset.epiId);
+    const qtdBanco = parseInt(tr.dataset.qtdBanco ?? '0');
+    const qtdStr   = tr.dataset.qtdContada;
+    if (!epiId || qtdStr === '' || qtdStr === undefined || qtdStr === null) return;
+    itens.push({ epi_id: epiId, qtd_banco: qtdBanco, qtd_contada: parseInt(qtdStr) });
+  });
+
+  if (!itens.length) { toast('Nenhum item contado para salvar.', 'warning'); return; }
+
+  btn.disabled = true; btn.textContent = 'Salvando...';
+
+  try {
+    const payload = {
+      empresa_id:    auditDados.empresaId,
+      unidade_id:    auditDados.unidadeId,
+      subunidade_id: auditDados.subunidadeId,
+      observacao:    obs,
+      itens,
+    };
+    const r = await fetch('api/auditorias.php?action=salvar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error ?? 'Erro ao salvar');
+
+    toast(`Auditoria #${d.auditoria_id} salva! Divergências: ${d.total_divergencias}`, 'success');
+    fecharComparativo();
+    /* Volta ao início */
+    setTimeout(() => cancelarAuditoria(), 400);
+
+  } catch(err) {
+    toast(err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '💾 Salvar no banco';
+  }
+}
+
+/* ────────────────── EXPORTAR PDF ────────────────── */
+function exportarPDF() {
+  const obs      = document.getElementById('cmp-obs').value.trim();
+  const locLabel = auditDados.locLabel ?? '';
+  const now      = new Date().toLocaleString('pt-BR');
+
+  /* Captura as linhas do comparativo (preserva classes de linha) */
+  const rows  = document.querySelectorAll('#tbody-cmp tr[data-epi-id]');
+  let tabRows = '';
+  rows.forEach(tr => {
+    const tds = tr.querySelectorAll('td');
+    if (!tds.length) return;
+    const trClass = tr.className ? ` class="${tr.className}"` : '';
+    tabRows += `<tr${trClass}>` + Array.from(tds).map(td => `<td>${td.innerHTML}</td>`).join('') + `</tr>`;
+  });
+
+  // Inlinear o CSS completo de gestao.new/css/styles.css + classes de status
+  const css = `:root{--bg:oklch(0.985 0.005 130);--fg:oklch(0.20 0.03 150);--card:#ffffff;--muted:oklch(0.95 0.01 130);--muted-fg:oklch(0.50 0.03 150);--primary:oklch(0.42 0.10 150);--primary-fg:oklch(0.985 0.01 130);--accent:oklch(0.78 0.14 75);--accent-fg:oklch(0.20 0.05 60);--border:oklch(0.90 0.02 140);--radius:0.625rem}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+img{max-width:100%;display:block}
+
+/* headers */
+.print-header{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.print-header img{height:40px;width:40px;object-fit:contain}
+.print-header .title{font-size:18px;font-weight:700}
+.print-header .meta{font-size:12px;color:#555}
+
+/* table */
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid #e6e6e6}
+th{font-weight:700;color:#fff;background:#1a4a2a;font-size:12px;text-transform:uppercase}
+
+/* status rows */
+.comp-ok td{background:#f0fdf4}
+.comp-alto td{background:#fef9c3}
+.comp-baixo td{background:#fef2f2}
+.diff-ok{color:#15803d;font-weight:700}
+.diff-pos{color:#b45309;font-weight:700}
+.diff-neg{color:#dc2626;font-weight:700}
+.obs{margin-top:12px;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:11px;color:#333}
+
+/* print tweaks */
+body{background:#fff;color:#111;padding:18mm;opacity:1}
+@media print{@page{size:A4 portrait;margin:14mm}}
+`;
+
+  // Cabeçalho com logo (usa caminho relativo ao arquivo)
+  const header = '<div class="print-header"><img src="img/logo.png" alt="logo"><div><div class="title">Relatório de Auditoria de Estoque</div><div class="meta">Localização: <strong>' + esc(locLabel) + '</strong> &nbsp;|&nbsp; Data: <strong>' + now + '</strong></div></div></div>';
+
+  const html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Auditoria — ' + esc(locLabel) + '</title><style>' + css + '</style></head><body>'
+    + header
+    + '<div class="card"><div class="card-body"><div class="table-wrapper"><table><thead><tr><th>EPI</th><th>CA</th><th style="text-align:right">Banco</th><th style="text-align:right">Contado</th><th style="text-align:right">Diferença</th><th>Status</th></tr></thead><tbody>' + tabRows + '</tbody></table></div></div></div>'
+    + (obs ? ('<div class="obs"><strong>Observação:</strong> ' + esc(obs) + '</div>') : '')
+    + '<script>window.onload=()=>{setTimeout(()=>{window.print();},120);}</' + 'script></body></html>';
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url  = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+}
+
+/* ────────────────── CANCELAR ────────────────── */
+function cancelarAuditoria() {
+  estoqueAudit = [];
+  auditDados   = {};
+  document.getElementById('stage-auditoria').style.display = 'none';
+  document.getElementById('stage-inicio').style.display    = '';
+  const btn = document.querySelector('#stage-inicio .btn.accent');
+  if (btn) { btn.disabled = false; btn.textContent = '🔍 Iniciar Auditoria'; }
+}
+</script>
+</body>
+</html>

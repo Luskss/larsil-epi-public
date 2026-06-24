@@ -1,0 +1,59 @@
+# ════════════════════════════════════════════════════════════════
+#  Performance — compressão + cache de estáticos
+#  (módulos deflate/expires/headers já habilitados no Dockerfile;
+#   AllowOverride All permite este .htaccess. Não altera DB/segurança/design.)
+# ════════════════════════════════════════════════════════════════
+
+# ── Compressão gzip das respostas de texto (HTML, CSS, JS, JSON) ──
+# Reduz drasticamente o tamanho transferido das listas/tabelas (JSON
+# das APIs costuma comprimir 70-85%).
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE application/javascript application/x-javascript text/javascript
+    AddOutputFilterByType DEFLATE application/json
+    AddOutputFilterByType DEFLATE image/svg+xml application/xml
+
+    # Compatibilidade com navegadores muito antigos
+    BrowserMatch ^Mozilla/4 gzip-only-text/html
+    BrowserMatch ^Mozilla/4\.0[678] no-gzip
+    BrowserMatch \bMSIE !no-gzip !gzip-only-text/html
+</IfModule>
+
+# ── Validação por Vary para proxies/CDNs ──
+<IfModule mod_headers.c>
+    <FilesMatch "\.(css|js|json|svg)$">
+        Header append Vary Accept-Encoding
+    </FilesMatch>
+</IfModule>
+
+# ── Expiração / cache de assets estáticos ──
+# Imagens são estáveis (logos) → cache longo. JS/CSS/HTML NÃO recebem max-age:
+# os nomes não mudam entre deploys, então um cache longo serviria código velho.
+# Eles usam revalidação (no-cache) abaixo — o gzip já reduz o tamanho, e o
+# navegador recebe 304 (sem corpo) quando nada mudou.
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/png      "access plus 30 days"
+    ExpiresByType image/jpeg     "access plus 30 days"
+    ExpiresByType image/gif      "access plus 30 days"
+    ExpiresByType image/svg+xml  "access plus 30 days"
+    ExpiresByType image/x-icon   "access plus 30 days"
+    ExpiresByType image/webp     "access plus 30 days"
+</IfModule>
+
+# ── Cache-Control explícito ──
+<IfModule mod_headers.c>
+    # Imagens estáveis (logos) — cache agressivo
+    <FilesMatch "\.(png|jpe?g|gif|svg|ico|webp|woff2?)$">
+        Header set Cache-Control "public, max-age=2592000"
+    </FilesMatch>
+    # JS/CSS/HTML — armazena mas revalida sempre (deploy-safe, sem versão no nome)
+    <FilesMatch "\.(css|js|html)$">
+        Header set Cache-Control "no-cache"
+    </FilesMatch>
+    # Respostas da API (JSON com dados/sessão) nunca devem ser cacheadas
+    <FilesMatch "\.php$">
+        Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+    </FilesMatch>
+</IfModule>

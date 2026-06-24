@@ -1,0 +1,123 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Despachar EPI — EPI Manager</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="app">
+  <div class="page-head">
+    <div><h1>Despachar EPI</h1><p>Solicitações aprovadas aguardando despacho</p></div>
+    <input class="input" id="search" placeholder="Buscar colaborador ou líder…" style="width:220px" oninput="applyFilters()">
+  </div>
+
+  <div id="alerta" style="display:none;margin-bottom:16px;padding:.9rem 1.1rem;border-radius:10px;background:#eff6ff;border:1px solid #3b82f6;color:#1e3a5f;gap:.6rem;align-items:center">
+    🔵 <span id="alerta-msg"></span>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Data</th>
+          <th>Colaborador</th>
+          <th>Empresa</th>
+          <th>Líder</th>
+          <th>EPIs solicitados</th>
+          <th>Prioridade</th>
+          <th>Ação</th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        <tr><td colspan="8" style="text-align:center;color:var(--muted-fg);padding:32px">Carregando…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+<script defer src="js/config.js"></script>
+<script defer src="js/auth.js"></script>
+<script defer src="js/utils.js"></script>
+<script defer src="js/_layout.js"></script>
+<script>
+  let allRows = [];
+
+  document.addEventListener('authReady', function(){ load(); });
+
+  async function load(){
+    document.getElementById('tbody').innerHTML =
+      '<tr><td colspan="8" style="text-align:center;color:var(--muted-fg);padding:32px">Carregando…</td></tr>';
+    const res = await fetch('api/solicitacoes.php?status=1');
+    allRows   = res.ok ? await res.json() : [];
+    const alerta = document.getElementById('alerta');
+    if(allRows.length){
+      document.getElementById('alerta-msg').innerHTML =
+        `<b>${allRows.length} solicitaç${allRows.length > 1 ? 'ões' : 'ão'}</b> aguardando despacho.`;
+      alerta.style.display = 'flex';
+    } else {
+      alerta.style.display = 'none';
+    }
+    applyFilters();
+  }
+
+  function applyFilters(){
+    const q = document.getElementById('search').value.toLowerCase();
+    const rows = allRows.filter(r =>
+      !q ||
+      (r.COLABORADOR_NOME||'').toLowerCase().includes(q) ||
+      (r.LIDER||'').toLowerCase().includes(q)
+    );
+    render(rows);
+  }
+
+  function render(rows){
+    const tbody = document.getElementById('tbody');
+    if(!rows.length){
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted-fg);padding:32px">Nenhuma solicitação aguardando despacho. ✅</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(s => {
+      const epis = (s.itens||[]).map(i => i.DESCRICAO || 'EPI').join(', ') || '—';
+      return `
+        <tr>
+          <td style="font-family:monospace">#${s.ID_SOLICITACAO}</td>
+          <td>${formatDate(s.DATA_SOLICITACAO)}</td>
+          <td><b>${s.COLABORADOR_NOME||'—'}</b></td>
+          <td>${s.COLABORADOR_EMPRESA||'—'}</td>
+          <td>${s.LIDER||'—'}</td>
+          <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${epis}">${epis}</td>
+          <td><span class="badge ${s.PRIORIDADE==='Urgente'?'red':''}">${s.PRIORIDADE||'—'}</span></td>
+          <td>
+            <button class="btn sm accent" onclick="despachar(${s.ID_SOLICITACAO}, this)">Despachar</button>
+          </td>
+        </tr>`;
+    }).join('');
+  }
+
+  async function despachar(id, btn){
+    if(!confirm('Confirmar despacho desta solicitação?')) return;
+    btn.disabled = true;
+    btn.textContent = '…';
+    const res = await fetch('api/solicitacoes.php', {
+      method: 'PATCH',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({id, status: 2})
+    });
+    const d = await res.json();
+    if(d.success){ toastDespacho(d.despacho_id); load(); }
+    else{ toast(d.error||'Erro ao despachar','error'); btn.disabled=false; btn.textContent='Despachar'; }
+  }
+  function toastDespacho(id){
+    const t=document.createElement('div');
+    t.className='toast';
+    t.style.cssText='max-width:420px;line-height:1.6';
+    t.innerHTML='Despachado! Gostaria de ver o PDF?<br><a href="api/despacho-print.php?id='+id+'" target="_blank" style="color:#a3e635;font-weight:700;text-decoration:underline">&#128196; Ver comprovante de despacho →</a>';
+    document.body.appendChild(t);
+    requestAnimationFrame(()=>t.classList.add('show'));
+    setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(),300); }, 9000);
+  }
+</script>
+</body>
+</html>

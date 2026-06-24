@@ -1,0 +1,657 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cadastros Auxiliares - EPI Manager</title>
+<link rel="stylesheet" href="css/styles.css">
+<style>
+/* Tabs */
+.tab-bar{display:flex;gap:4px;padding:4px;background:var(--muted);border-radius:10px;width:fit-content;margin-bottom:20px}
+.tab-btn{padding:7px 18px;border:none;background:none;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;color:var(--muted-fg);transition:all .15s}
+.tab-btn.active{background:#fff;color:var(--fg);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.tab-pane{display:none}.tab-pane.active{display:block}
+
+/* Tree */
+.tree{padding:6px 0}
+.section-label{padding:8px 16px 5px;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted-fg)}
+.tree-divider{border:none;border-top:1px solid var(--border);margin:8px 0}
+
+.node-row{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:8px;transition:background .12s;user-select:none}
+.node-row.clickable{cursor:pointer}
+.node-row.clickable:hover{background:rgba(34,197,94,.12)}
+.node-row:not(.clickable):hover{background:rgba(34,197,94,.08);border-radius:8px}
+
+.node-empresa{font-weight:600;font-size:14px}
+.node-unidade{padding-left:36px;font-size:13px}
+.node-sub{padding-left:68px;font-size:13px}
+.badge-principal{font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:#dbeafe;color:#1d4ed8;letter-spacing:.04em;flex-shrink:0}
+
+.node-chevron{flex-shrink:0;color:var(--muted-fg);transition:transform .2s;display:flex;align-items:center;width:16px}
+.node-chevron.open{transform:rotate(90deg)}
+.node-label{flex:1}
+.node-meta{font-size:11px;color:var(--muted-fg)}
+.node-dot{width:5px;height:5px;border-radius:50%;background:var(--muted-fg);flex-shrink:0;margin-left:4px}
+.node-actions{display:flex;gap:2px;opacity:0;transition:opacity .1s}
+.node-row:hover .node-actions{opacity:1}
+.node-actions .icon-btn{background:rgba(255,255,255,.92);border:1px solid #e5e7eb;color:#334155}
+.node-row:hover .node-actions .icon-btn{box-shadow:0 1px 3px rgba(15,23,42,.12)}
+
+.node-children{display:none}
+.node-children.open{display:block}
+
+.empty-hint{padding:5px 14px;font-size:12px;color:var(--muted-fg);font-style:italic}
+.empty-hint.l2{padding-left:52px}
+.empty-hint.l3{padding-left:84px}
+
+/* Icon buttons */
+.icon-btn{background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:6px;color:var(--muted-fg);line-height:1;transition:color .15s,background .15s,border-color .15s,box-shadow .15s}
+.icon-btn.del:hover{background:#fee2e2;color:#dc2626;border-color:#fecaca}
+.icon-btn.team:hover{background:#dbeafe;color:#1d4ed8;border-color:#bfdbfe}
+
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:1000}
+.modal-bg.hidden{display:none}
+.modal-box{background:#fff;border-radius:14px;padding:28px;width:100%;max-width:460px;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.modal-box h3{margin:0 0 20px;font-size:17px}
+.mfield{margin-bottom:14px}
+.mfield label{display:block;font-size:11px;font-weight:700;color:var(--muted-fg);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em}
+.msec{display:none}.msec.active{display:block}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:22px}
+
+/* Grupos tab */
+.add-row{display:flex;gap:8px;padding:14px 16px;border-bottom:1px solid var(--border);align-items:center}
+
+/* Modal Equipes */
+.modal-box.wide{max-width:620px}
+.equipes-list{max-height:420px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;padding:10px;background:#f8fafc;margin-top:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.6)}
+.equipe-item{display:flex;align-items:center;gap:12px;padding:12px;background:#fff;border-radius:10px;margin-bottom:8px;border:1px solid #e5e7eb;transition:transform .12s, box-shadow .12s, border-color .12s}
+.equipe-item:hover{border-color:#c7d2fe;box-shadow:0 1px 6px rgba(15,23,42,.08)}
+.equipe-item:last-child{margin-bottom:0}
+.equipe-checkbox{flex-shrink:0;width:18px;height:18px;margin-top:0;cursor:pointer;accent-color:#2563eb}
+.equipe-info{flex:1}
+.equipe-info-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.equipe-label{font-weight:600;font-size:13px;color:#0f172a;letter-spacing:.01em}
+.equipe-cliente{font-size:11px;color:#334155;padding:2px 6px;background:#eef2ff;border-radius:6px;border:1px solid #e0e7ff}
+.equipe-badge{font-size:10px;padding:2px 6px;border-radius:6px;background:#ecfdf3;color:#15803d;font-weight:700;border:1px solid #bbf7d0}
+.empty-equipes{text-align:center;padding:40px;color:var(--muted-fg);font-size:13px}
+.loading-equipes{text-align:center;padding:30px;color:var(--muted-fg)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="page-head">
+    <div><h1>Cadastros auxiliares</h1><p>Grupos de EPI, empresas, unidades e subunidades</p></div>
+    <button class="btn accent" onclick="openModal()">+ Cadastrar</button>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('hierarquia')">Hierarquia</button>
+    <button class="tab-btn" onclick="switchTab('grupos')">Grupos de EPI</button>
+  </div>
+
+  <!-- Tab: Hierarquia -->
+  <div class="tab-pane active" id="pane-hierarquia">
+    <div class="card" style="padding:0">
+      <div id="tree-root" style="padding:8px 0">
+        <div style="text-align:center;color:var(--muted-fg);padding:40px">Carregando...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Grupos de EPI -->
+  <div class="tab-pane" id="pane-grupos">
+    <div class="card">
+      <div class="add-row">
+        <input class="input" id="g-nome" placeholder="Novo nome do grupo" style="flex:1;max-width:360px" onkeydown="if(event.key==='Enter')addGrupo()">
+        <button class="btn accent" onclick="addGrupo()">+ Adicionar</button>
+      </div>
+      <table>
+        <thead><tr><th>Nome</th><th style="width:140px">Criado em</th><th style="width:60px;text-align:right">Ações</th></tr></thead>
+        <tbody id="tbody-grupos"><tr><td colspan="3" style="text-align:center;color:var(--muted-fg);padding:28px">Carregando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Cadastrar -->
+<div class="modal-bg hidden" id="modal-bg" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+    <h3>Cadastrar</h3>
+    <div class="mfield">
+      <label>O que deseja cadastrar?</label>
+      <select class="select" id="m-tipo" onchange="onTipoChange()" style="width:100%">
+        <option value="">Selecione...</option>
+        <option value="unidade">Nova unidade</option>
+        <option value="subunidade">Nova subunidade</option>
+      </select>
+    </div>
+
+    <!-- Nova unidade -->
+    <div class="msec" id="sec-unidade">
+      <div class="mfield"><label>Nome *</label><input class="input" id="m-uni-nome" placeholder="Ex: Filial Cuiaba" style="width:100%"></div>
+      <div class="mfield"><label>Empresa (opcional)</label>
+        <select class="select" id="m-uni-empresa" style="width:100%"><option value="">Sem empresa</option></select>
+      </div>
+    </div>
+
+    <!-- Nova subunidade -->
+    <div class="msec" id="sec-subunidade">
+      <div class="mfield"><label>Nome *</label><input class="input" id="m-sub-nome" placeholder="Ex: Almoxarifado Central" style="width:100%"></div>
+      <div class="mfield"><label>Unidade (opcional)</label>
+        <select class="select" id="m-sub-unidade" style="width:100%"><option value="">Sem unidade</option></select>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn accent" onclick="saveModal()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Gerenciar Equipes -->
+<div class="modal-bg hidden" id="modal-equipes-bg" onclick="if(event.target===this)closeEquipesModal()">
+  <div class="modal-box wide">
+    <h3 id="equipes-title">Gerenciar Equipes</h3>
+    <p style="color:var(--muted-fg);font-size:13px;margin:-10px 0 10px">Selecione quais equipes este local atende:</p>
+    
+    <div id="equipes-content" class="equipes-list">
+      <div class="loading-equipes">Carregando equipes disponíveis...</div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn outline" onclick="closeEquipesModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<script defer src="js/config.js"></script>
+<script defer src="js/auth.js"></script>
+<script defer src="js/utils.js"></script>
+<script defer src="js/_layout.js"></script>
+<script>
+let empresasData = [], unidadesData = [], subunidadesData = [], gruposData = [];
+let openState = {};
+
+const CHEV = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>';
+const TRASH = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
+const TEAM = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
+
+function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+
+/* ── Auth ── */
+document.addEventListener('authReady', () => { loadHierarquia(); });
+
+/* ── Tabs ── */
+function switchTab(tab) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('pane-' + tab).classList.add('active');
+  document.querySelectorAll('.tab-btn')[['hierarquia','grupos'].indexOf(tab)].classList.add('active');
+  if (tab === 'hierarquia') loadHierarquia();
+  if (tab === 'grupos')     loadGrupos();
+}
+
+/* ════ HIERARQUIA ════ */
+async function loadHierarquia() {
+  const root = document.getElementById('tree-root');
+  root.innerHTML = '<div style="text-align:center;color:var(--muted-fg);padding:40px">Carregando...</div>';
+  try {
+    const [re, ru, rs] = await Promise.all([
+      fetch('api/grupos.php?tab=empresas'),
+      fetch('api/grupos.php?tab=unidades'),
+      fetch('api/grupos.php?tab=subunidades')
+    ]);
+    empresasData    = re.ok ? await re.json() : [];
+    unidadesData    = ru.ok ? await ru.json() : [];
+    subunidadesData = rs.ok ? await rs.json() : [];
+  } catch(e) {
+    root.innerHTML = '<div style="text-align:center;color:#dc2626;padding:40px">Erro ao carregar dados.</div>';
+    return;
+  }
+  renderTree();
+  rebuildSelects();
+}
+
+function renderTree() {
+  const root = document.getElementById('tree-root');
+
+  /* indices */
+  const empToUnits = {};
+  unidadesData.forEach(u => {
+    if (u.EMPRESA_ID != null) (empToUnits[u.EMPRESA_ID] = empToUnits[u.EMPRESA_ID] || []).push(u);
+  });
+
+  const unitToSubs = {};
+  subunidadesData.forEach(s => { if(s.UNIDADE_ID!=null)(unitToSubs[s.UNIDADE_ID]=unitToSubs[s.UNIDADE_ID]||[]).push(s); });
+
+  const orphanUnits  = unidadesData.filter(u => u.EMPRESA_ID == null);
+  const detachedSubs = subunidadesData.filter(s => s.UNIDADE_ID == null);
+
+  if (!empresasData.length && !orphanUnits.length && !detachedSubs.length) {
+    root.innerHTML = '<div style="text-align:center;color:var(--muted-fg);padding:48px">Nenhum dado cadastrado.<br><small>Clique em &quot;+ Cadastrar&quot; para comecar.</small></div>';
+    return;
+  }
+
+  let h = '<div class="tree">';
+
+  /* ── Empresas ── */
+  empresasData.forEach(emp => {
+    const eid       = emp.ID_EMPRESA;
+    const ekey      = 'e' + eid;
+    const eOpen     = openState[ekey] !== false;
+    const units     = empToUnits[eid] || [];
+    const isPrinc   = emp.PRINCIPAL === 1;
+
+    h += `
+<div class="node-row node-empresa clickable" onclick="toggle('${ekey}',this)">
+  <span class="node-chevron ${eOpen?'open':''}">${CHEV}</span>
+  <span class="node-label">${esc(emp.RAZAO_SOCIAL)}</span>
+  ${isPrinc ? '<span class="badge-principal">MATRIZ</span>' : ''}
+  <span class="node-meta">${esc(formatCNPJ(emp.CNPJ))}</span>
+  <span class="node-actions" onclick="event.stopPropagation()">
+    <button class="icon-btn team" title="Gerenciar equipes" onclick="openEquipesModal('empresa',${eid},'${esc(emp.RAZAO_SOCIAL).replace(/'/g,"\\'")}',null,null)">${TEAM}</button>
+    <button class="icon-btn del" title="Excluir empresa" onclick="delEmpresa(${eid})">${TRASH}</button>
+  </span>
+</div>
+<div class="node-children ${eOpen?'open':''}" id="ch-${ekey}">`;
+
+    if (!units.length) {
+      h += isPrinc
+        ? `<div class="empty-hint l2" style="color:#1d4ed8">Empresa principal &mdash; unidades nao permitidas</div>`
+        : `<div class="empty-hint l2">Sem unidades</div>`;
+    } else {
+      units.forEach(u => h += renderUnidade(u, unitToSubs));
+    }
+    h += `</div>`;
+  });
+
+  /* ── Unidades sem empresa ── */
+  if (orphanUnits.length) {
+    h += `<hr class="tree-divider"><div class="section-label">Unidades sem empresa</div>`;
+    orphanUnits.forEach(u => h += renderUnidade(u, unitToSubs, true));
+  }
+
+  /* ── Subunidades sem unidade ── */
+  if (detachedSubs.length) {
+    h += `<hr class="tree-divider"><div class="section-label">Sem unidade</div>`;
+    detachedSubs.forEach(s => {
+      h += `
+<div class="node-row node-sub" style="padding-left:14px">
+  <span class="node-dot"></span>
+  <span class="node-label">${esc(s.NOME)}</span>
+  <span class="node-actions" onclick="event.stopPropagation()">
+    <button class="icon-btn team" title="Gerenciar equipes" onclick="openEquipesModal('subunidade',null,'',null,'',${s.ID_SUBUNIDADE},'${esc(s.NOME).replace(/'/g,"\\'")}')">${TEAM}</button>
+    <button class="icon-btn del" title="Excluir" onclick="delSub(${s.ID_SUBUNIDADE})">${TRASH}</button>
+  </span>
+</div>`;
+    });
+  }
+
+  h += '</div>';
+  root.innerHTML = h;
+}
+
+function renderUnidade(u, unitToSubs, standalone) {
+  const uid   = u.ID_UNIDADE;
+  const ukey  = 'u' + uid;
+  const uOpen = openState[ukey] !== false;
+  const subs  = unitToSubs[uid] || [];
+  const pl    = standalone ? 'padding-left:14px' : '';
+
+  let h = `
+<div class="node-row node-unidade clickable" style="${pl}" onclick="toggle('${ukey}',this)">
+  <span class="node-chevron ${uOpen?'open':''}">${CHEV}</span>
+  <span class="node-label">${esc(u.NOME)}</span>
+  <span class="node-meta">${subs.length} subunidade${subs.length!==1?'s':''}</span>
+  <span class="node-actions" onclick="event.stopPropagation()">
+    <button class="icon-btn team" title="Gerenciar equipes" onclick="openEquipesModal('unidade',null,'',${uid},'${esc(u.NOME).replace(/'/g,"\\'")}',null)">${TEAM}</button>
+    <button class="icon-btn del" title="Excluir unidade" onclick="delUnidade(${uid})">${TRASH}</button>
+  </span>
+</div>
+<div class="node-children ${uOpen?'open':''}" id="ch-${ukey}">`;
+
+  if (!subs.length) {
+    h += `<div class="empty-hint ${standalone?'':'l3'}">Sem subunidades</div>`;
+  } else {
+    const subPl = standalone ? 'padding-left:46px' : '';
+    subs.forEach(s => {
+      h += `
+<div class="node-row node-sub" style="${subPl}">
+  <span class="node-dot"></span>
+  <span class="node-label">${esc(s.NOME)}</span>
+  <span class="node-actions" onclick="event.stopPropagation()">
+    <button class="icon-btn team" title="Gerenciar equipes" onclick="openEquipesModal('subunidade',null,'',null,'',${s.ID_SUBUNIDADE},'${esc(s.NOME).replace(/'/g,"\\'")}')">${TEAM}</button>
+    <button class="icon-btn del" title="Excluir" onclick="delSub(${s.ID_SUBUNIDADE})">${TRASH}</button>
+  </span>
+</div>`;
+    });
+  }
+  h += `</div>`;
+  return h;
+}
+
+function toggle(key, el) {
+  const wasOpen = openState[key] !== false;
+  openState[key] = !wasOpen;
+  el.querySelector('.node-chevron').classList.toggle('open', !wasOpen);
+  const ch = document.getElementById('ch-' + key);
+  if (ch) ch.classList.toggle('open', !wasOpen);
+}
+
+/* ── Acoes arvore ── */
+async function delEmpresa(id) {
+  const emp = empresasData.find(e => e.ID_EMPRESA === id);
+  const nome = emp ? emp.RAZAO_SOCIAL : '#' + id;
+  if (!confirm(`Excluir empresa "${nome}"?\nOs vinculos com unidades tambem serao removidos.`)) return;
+  const r = await fetch('api/empresas.php', {method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+  const d = await r.json();
+  if (!r.ok) { toast('Erro', d.error, 'error'); return; }
+  toast('Empresa excluida.','','success');
+  loadHierarquia();
+}
+
+async function delUnidade(id) {
+  const u = unidadesData.find(u => u.ID_UNIDADE === id);
+  const subs = subunidadesData.filter(s => s.UNIDADE_ID === id);
+  const aviso = subs.length ? `\nAtencao: ${subs.length} subunidade(s) tambem serao excluidas.` : '';
+  if (!confirm(`Excluir unidade "${u?.NOME ?? '#'+id}"?${aviso}`)) return;
+  const r = await fetch('api/grupos.php?tab=unidades', {method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+  const d = await r.json();
+  if (!r.ok) { toast('Erro', d.error, 'error'); return; }
+  toast('Unidade excluida.','','success');
+  loadHierarquia();
+}
+
+async function delSub(id) {
+  const sub = subunidadesData.find(s => s.ID_SUBUNIDADE === id);
+  const nome = sub ? sub.NOME : '#' + id;
+  if (!confirm(`Excluir subunidade "${nome}"?`)) return;
+  const r = await fetch('api/grupos.php?tab=subunidades', {method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+  const d = await r.json();
+  if (!r.ok) { toast('Erro', d.error, 'error'); return; }
+  toast('Subunidade excluida.','','success');
+  loadHierarquia();
+}
+
+/* ════ GRUPOS DE EPI ════ */
+async function loadGrupos() {
+  const r = await fetch('api/grupos.php?tab=grupos');
+  gruposData = r.ok ? await r.json() : [];
+  const tb = document.getElementById('tbody-grupos');
+  if (!gruposData.length) { tb.innerHTML='<tr><td colspan="3" style="text-align:center;color:var(--muted-fg);padding:28px">Nenhum grupo cadastrado.</td></tr>'; return; }
+  tb.innerHTML = gruposData.map(g => `<tr>
+    <td>${esc(g.NOME_GRUPO)}</td>
+    <td style="color:var(--muted-fg);font-size:12px">${formatDate(g.CRIADA_EM)}</td>
+    <td style="text-align:right"><button class="icon-btn del" onclick="delGrupo(${g.ID})">${TRASH}</button></td>
+  </tr>`).join('');
+}
+
+async function addGrupo() {
+  const nome = document.getElementById('g-nome').value.trim();
+  if (!nome) return;
+  const r = await fetch('api/grupos.php?tab=grupos', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nome})});
+  const d = await r.json();
+  if (!r.ok) { toast('Erro', d.error, 'error'); return; }
+  document.getElementById('g-nome').value = '';
+  toast('Grupo adicionado.','','success');
+  loadGrupos();
+}
+
+async function delGrupo(id) {
+  const g = gruposData.find(x => x.ID === id);
+  const nome = g ? g.NOME_GRUPO : '#' + id;
+  if (!confirm(`Excluir grupo "${nome}"?`)) return;
+  const r = await fetch('api/grupos.php?tab=grupos', {method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+  const d = await r.json();
+  if (!r.ok) { toast('Erro', d.error, 'error'); return; }
+  toast('Grupo excluido.','','success');
+  loadGrupos();
+}
+
+/* ════ MODAL ════ */
+function openModal() {
+  document.getElementById('m-tipo').value = '';
+  document.querySelectorAll('.msec').forEach(s => s.classList.remove('active'));
+  ['m-uni-nome','m-sub-nome'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('m-uni-empresa').value = '';
+  document.getElementById('m-sub-unidade').value = '';
+  document.getElementById('modal-bg').classList.remove('hidden');
+  rebuildSelects();
+}
+
+function closeModal() { document.getElementById('modal-bg').classList.add('hidden'); }
+
+function onTipoChange() {
+  const tipo = document.getElementById('m-tipo').value;
+  document.querySelectorAll('.msec').forEach(s => s.classList.remove('active'));
+  if (tipo) document.getElementById('sec-' + tipo).classList.add('active');
+}
+
+function rebuildSelects() {
+  const principalIds = new Set(empresasData.filter(e => e.PRINCIPAL === 1).map(e => e.ID_EMPRESA));
+  const principalUnitIds = new Set(unidadesData.filter(u => u.EMPRESA_ID != null && principalIds.has(u.EMPRESA_ID)).map(u => u.ID_UNIDADE));
+
+  /* empresa select para nova unidade (sem PRINCIPAL) */
+  const se = document.getElementById('m-uni-empresa');
+  se.innerHTML = '<option value="">Sem empresa</option>';
+  empresasData.filter(e => e.PRINCIPAL !== 1).forEach(e => {
+    const o = document.createElement('option'); o.value = e.ID_EMPRESA; o.textContent = e.RAZAO_SOCIAL; se.appendChild(o);
+  });
+
+  /* unidade select para nova subunidade (sem unidades de empresa PRINCIPAL) */
+  const su = document.getElementById('m-sub-unidade');
+  su.innerHTML = '<option value="">Sem unidade</option>';
+  unidadesData.filter(u => !principalUnitIds.has(u.ID_UNIDADE)).forEach(u => {
+    const emp = u.EMPRESA_ID != null ? empresasData.find(e => e.ID_EMPRESA === u.EMPRESA_ID) : null;
+    const lbl = emp ? `${u.NOME} (${emp.RAZAO_SOCIAL})` : u.NOME;
+    const o   = document.createElement('option'); o.value = u.ID_UNIDADE; o.textContent = lbl; su.appendChild(o);
+  });
+}
+
+async function saveModal() {
+  const tipo = document.getElementById('m-tipo').value;
+  if (!tipo) { toast('Selecione o tipo.','','warning'); return; }
+
+  if (tipo === 'unidade') {
+    const nome  = document.getElementById('m-uni-nome').value.trim();
+    const empId = document.getElementById('m-uni-empresa').value || null;
+    if (!nome) { toast('Nome e obrigatorio.','','warning'); return; }
+    if (empId) {
+      const emp = empresasData.find(e => e.ID_EMPRESA === parseInt(empId));
+      if (emp && emp.PRINCIPAL === 1) { toast('Bloqueado', 'Nao e permitido criar unidades para a empresa principal.', 'error'); return; }
+    }
+    const r = await fetch('api/grupos.php?tab=unidades', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nome,empresa_id:empId?parseInt(empId):null})});
+    const d = await r.json(); if(!r.ok){toast('Erro',d.error,'error');return;}
+    toast('Unidade criada.','','success');
+  }
+  else if (tipo === 'subunidade') {
+    const nome = document.getElementById('m-sub-nome').value.trim();
+    const uid  = document.getElementById('m-sub-unidade').value || null;
+    if (!nome) { toast('Nome e obrigatorio.','','warning'); return; }
+    if (uid) {
+      const u = unidadesData.find(u => u.ID_UNIDADE === parseInt(uid));
+      if (u && u.EMPRESA_ID != null) {
+        const emp = empresasData.find(e => e.ID_EMPRESA === u.EMPRESA_ID);
+        if (emp && emp.PRINCIPAL === 1) { toast('Bloqueado', 'Nao e permitido criar subunidades em unidades da empresa principal.', 'error'); return; }
+      }
+    }
+    const r = await fetch('api/grupos.php?tab=subunidades', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nome,unidade_id:uid?parseInt(uid):null})});
+    const d = await r.json(); if(!r.ok){toast('Erro',d.error,'error');return;}
+    toast('Subunidade criada.','','success');
+  }
+
+  closeModal();
+  loadHierarquia();
+}
+
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+
+/* ════ GERENCIAR EQUIPES ════ */
+let equipesModalState = { tipo: '', empresaId: null, empresaNome: '', unidadeId: null, unidadeNome: '', subunidadeId: null, subunidadeNome: '' };
+let equipesOrganograma = [];
+let equipesVinculadas = [];
+
+async function openEquipesModal(tipo, empresaId, empresaNome, unidadeId, unidadeNome, subunidadeId, subunidadeNome) {
+  equipesModalState = { tipo, empresaId, empresaNome, unidadeId, unidadeNome, subunidadeId, subunidadeNome };
+  
+  // Título do modal
+  let localNome = '';
+  if (tipo === 'empresa') localNome = empresaNome;
+  else if (tipo === 'unidade') localNome = unidadeNome;
+  else if (tipo === 'subunidade') localNome = subunidadeNome;
+  
+  document.getElementById('equipes-title').textContent = `Gerenciar Equipes - ${localNome}`;
+  document.getElementById('modal-equipes-bg').classList.remove('hidden');
+  
+  // Carregar dados
+  await loadEquipesData();
+}
+
+function closeEquipesModal() {
+  document.getElementById('modal-equipes-bg').classList.add('hidden');
+}
+
+async function loadEquipesData() {
+  const content = document.getElementById('equipes-content');
+  content.innerHTML = '<div class="loading-equipes">Carregando equipes disponíveis...</div>';
+  
+  try {
+    // Carregar equipes do ORGANOGRAMA e equipes já vinculadas
+    const [rOrg, rVinc] = await Promise.all([
+      fetch('api/grupos.php?tab=organograma-equipes'),
+      fetch(`api/grupos.php?tab=equipes&empresa_id=${equipesModalState.empresaId || ''}&unidade_id=${equipesModalState.unidadeId || ''}&subunidade_id=${equipesModalState.subunidadeId || ''}`)
+    ]);
+    
+    if (!rOrg.ok || !rVinc.ok) {
+      content.innerHTML = '<div class="empty-equipes">Erro ao carregar dados.</div>';
+      return;
+    }
+    
+    equipesOrganograma = await rOrg.json();
+    equipesVinculadas = await rVinc.json();
+    
+    renderEquipes();
+  } catch (e) {
+    content.innerHTML = '<div class="empty-equipes">Erro ao carregar dados.</div>';
+    console.error(e);
+  }
+}
+
+function renderEquipes() {
+  const content = document.getElementById('equipes-content');
+  
+  if (!equipesOrganograma.length) {
+    content.innerHTML = '<div class="empty-equipes">Nenhuma equipe encontrada no ORGANOGRAMA.</div>';
+    return;
+  }
+  
+  // Criar conjunto de equipes vinculadas para fácil lookup
+  const vinculadasSet = new Set(
+    equipesVinculadas
+      .filter(ev => {
+        // Filtra apenas os vínculos deste local específico
+        const matchEmpresa = equipesModalState.empresaId === null || ev.EMPRESA_ID === equipesModalState.empresaId;
+        const matchUnidade = equipesModalState.unidadeId === null || ev.UNIDADE_ID === equipesModalState.unidadeId;
+        const matchSub = equipesModalState.subunidadeId === null || ev.SUBUNIDADE_ID === equipesModalState.subunidadeId;
+        return matchEmpresa && matchUnidade && matchSub;
+      })
+      .map(ev => `${ev.EQUIPE}|${ev.CLIENTE || ''}`)
+  );
+  
+  let h = '';
+  equipesOrganograma.forEach(eq => {
+    const key = `${eq.EQUIPE}|${eq.CLIENTE || ''}`;
+    const checked = vinculadasSet.has(key);
+    const vinculo = equipesVinculadas.find(v => v.EQUIPE === eq.EQUIPE && (v.CLIENTE || '') === (eq.CLIENTE || ''));
+    
+    h += `
+<div class="equipe-item">
+  <input type="checkbox" 
+         class="equipe-checkbox" 
+         id="eq-${esc(eq.EQUIPE)}-${esc(eq.CLIENTE || '')}" 
+         data-equipe="${esc(eq.EQUIPE)}" 
+         data-cliente="${esc(eq.CLIENTE || '')}"
+         data-vinculo-id="${vinculo ? vinculo.ID : ''}"
+         ${checked ? 'checked' : ''}
+         onchange="toggleEquipe(this)">
+  <label for="eq-${esc(eq.EQUIPE)}-${esc(eq.CLIENTE || '')}" class="equipe-info">
+    <div class="equipe-info-row">
+      <span class="equipe-label">Equipe: ${esc(eq.EQUIPE)}</span>
+      ${eq.CLIENTE ? `<span class="equipe-cliente">${esc(eq.CLIENTE)}</span>` : ''}
+      ${checked ? '<span class="equipe-badge">✓ VINCULADA</span>' : ''}
+    </div>
+  </label>
+</div>`;
+  });
+  
+  content.innerHTML = h;
+}
+
+async function toggleEquipe(checkbox) {
+  const equipe = checkbox.dataset.equipe;
+  const cliente = checkbox.dataset.cliente || '';
+  const vinculoId = checkbox.dataset.vinculoId ? parseInt(checkbox.dataset.vinculoId) : null;
+  const checked = checkbox.checked;
+  
+  try {
+    if (checked) {
+      // Adicionar vínculo
+      const body = {
+        empresa_id: equipesModalState.empresaId,
+        unidade_id: equipesModalState.unidadeId,
+        subunidade_id: equipesModalState.subunidadeId,
+        equipe: equipe,
+        cliente: cliente
+      };
+      
+      const r = await fetch('api/grupos.php?tab=equipes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      
+      const d = await r.json();
+      if (!r.ok) {
+        toast('Erro', d.error, 'error');
+        checkbox.checked = false;
+        return;
+      }
+      
+      toast('Equipe vinculada', '', 'success');
+    } else {
+      // Remover vínculo
+      if (!vinculoId) {
+        checkbox.checked = true;
+        return;
+      }
+      
+      const r = await fetch('api/grupos.php?tab=equipes', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: vinculoId })
+      });
+      
+      const d = await r.json();
+      if (!r.ok) {
+        toast('Erro', d.error, 'error');
+        checkbox.checked = true;
+        return;
+      }
+      
+      toast('Equipe desvinculada', '', 'success');
+    }
+    
+    // Recarregar dados
+    await loadEquipesData();
+  } catch (e) {
+    toast('Erro', 'Erro ao processar solicitação', 'error');
+    checkbox.checked = !checked;
+    console.error(e);
+  }
+}
+
+</script>
+</body>
+</html>

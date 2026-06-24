@@ -8,6 +8,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
         unixodbc-dev \
         libgss3 \
+    libfreetype6-dev \
+    libjpeg62-turbo-dev \
+    libpng-dev \
         wget \
     && rm -rf /var/lib/apt/lists/*
 
@@ -22,6 +25,10 @@ RUN curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor
 # ── Extensões PHP para SQL Server ────────────────────────────────────────────
 RUN pecl install sqlsrv pdo_sqlsrv \
     && docker-php-ext-enable sqlsrv pdo_sqlsrv
+
+# ── Extensão GD (requisito do mpdf/mpdf) ────────────────────────────────────
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j"$(nproc)" gd
 
 # ── Módulos Apache (força prefork; mod_php não é thread-safe) ────────────────
 # Remove qualquer .load/.conf de MPM para evitar "More than one MPM loaded"

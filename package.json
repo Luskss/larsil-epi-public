@@ -1,0 +1,19 @@
+{
+  "name": "larsil-epi-estoques-server",
+  "version": "1.0.0",
+  "description": "Backend Node/Express (porte do backend PHP) do sistema de controle de EPIs",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "mssql": "^11.0.1",
+    "multer": "^2.0.1"
+  }
+}
