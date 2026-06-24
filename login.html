@@ -1,125 +1,98 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Entrar — EPI Manager</title>
-<link rel="stylesheet" href="css/styles.css">
-<style>body{opacity:1!important}</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solicitar EPI</title>
+  <meta name="theme-color" content="#1e4620" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Solicitar EPI" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" sizes="48x48" href="img/favicon.png?v=2" />
+  <link rel="shortcut icon" href="img/favicon.png?v=2" />
+  <link rel="apple-touch-icon" sizes="192x192" href="img/iconandroid.png" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-<div class="auth">
-  <div class="side">
-    <div>
-      <div style="display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px">
-        <div style="width:36px;height:36px;border-radius:9px;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;font-weight:800">E</div>
-        EPI Manager
-      </div>
-      <h2 style="margin-top:60px">Segurança em primeiro lugar.</h2>
-      <p>Controle os equipamentos de proteção da sua equipe com agilidade e rastreabilidade.</p>
-      <div class="bullets">
-        <div><span class="dot"></span><span>Estoque atualizado em tempo real</span></div>
-        <div><span class="dot"></span><span>Termos de entrega assinados digitalmente</span></div>
-        <div><span class="dot"></span><span>Dashboards e relatórios gerenciais completos</span></div>
+  <div class="container">
+    <div class="login-wrap">
+      <div class="login-card">
+        <div class="login-logo">
+          <img src="img/branca.png" alt="Logo" style="height:72px;width:72px;object-fit:contain;border-radius:14px" />
+          <h1>Solicitar EPI</h1>
+          <p>Larsil Florestal</p>
+        </div>
+
+        <div id="error-box" class="error-box hidden"></div>
+
+        <form id="form-login">
+          <div class="form-group">
+            <label for="email">Login</label>
+            <input type="text" id="email" placeholder="Seu login" required autocomplete="username" />
+          </div>
+          <div class="form-group">
+            <label for="senha">Senha</label>
+            <input type="password" id="senha" placeholder="••••••••" autocomplete="current-password" />
+          </div>
+          <button type="submit" class="btn-primary" id="btn-login">Entrar</button>
+        </form>
       </div>
     </div>
-    <small style="color:rgba(255,255,255,.5);position:relative;z-index:2">© 2026 EPI Manager</small>
   </div>
-  <div class="form-wrap">
-    <div class="form">
-      <h1 id="form-title">Bem-vindo de volta</h1>
-      <p class="sub" id="form-sub">Entre com seu e-mail e senha para continuar</p>
-      <form id="frm" style="display:flex;flex-direction:column;gap:14px">
-        <div class="field" id="group-nome" style="display:none">
-          <label>Nome completo</label>
-          <input class="input" id="f-nome" type="text" placeholder="Seu nome completo">
-        </div>
-        <div class="field"><label>E-mail</label><input class="input" id="f-email" type="email" required placeholder="seu@email.com"></div>
-        <div class="field"><label>Senha</label><input class="input" id="f-senha" type="password" required placeholder="••••••••"></div>
-        <p id="msg-erro" style="color:var(--destructive);font-size:13px;margin:0;display:none"></p>
-        <button class="btn" type="submit" id="btn-submit">Entrar</button>
-        <div style="text-align:center;font-size:13px;color:var(--muted-fg);margin-top:2px">
-          <a id="toggle-link" href="#" style="color:var(--primary)" onclick="toggleMode(event)">Criar conta</a>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-<script>
-  let isSignUp = false;
-  // Redireciona se já logado
-  fetch('api/session.php', { credentials: 'same-origin' }).then(r=>r.json()).then(d=>{ if(d.loggedIn) location.href='dashboard.html'; }).catch(()=>{});
 
-  function toggleMode(e) {
-    e.preventDefault();
-    isSignUp = !isSignUp;
-    document.getElementById('form-title').textContent  = isSignUp ? 'Criar conta'    : 'Bem-vindo de volta';
-    document.getElementById('form-sub').textContent    = isSignUp ? 'Preencha os dados para criar sua conta' : 'Entre com seu e-mail e senha para continuar';
-    document.getElementById('group-nome').style.display = isSignUp ? '' : 'none';
-    document.getElementById('btn-submit').textContent  = isSignUp ? 'Criar conta'    : 'Entrar';
-    document.getElementById('toggle-link').textContent = isSignUp ? 'Já tenho conta' : 'Criar conta';
-    document.getElementById('msg-erro').style.display  = 'none';
-  }
+  <script>
+    // Já logado (sessão PHP ativa) → vai direto pro app
+    fetch('./check-auth.php', { cache: 'no-store', credentials: 'same-origin' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d && d.authenticated) window.location.href = 'index.html'; })
+      .catch(() => {});
 
-  async function fetchWithTimeout(url, opts, ms = 70000) {
-    const ctrl = new AbortController();
-    const tid  = setTimeout(() => ctrl.abort(), ms);
-    try { return await fetch(url, { ...opts, signal: ctrl.signal }); }
-    finally { clearTimeout(tid); }
-  }
+    const form     = document.getElementById('form-login');
+    const errBox   = document.getElementById('error-box');
+    const btnLogin = document.getElementById('btn-login');
 
-  // Mensagens de progresso enquanto o banco "acorda" (Azure SQL cold start)
-  const loadingMsgs = [
-    'Aguarde…',
-    'Conectando ao banco de dados…',
-    'O servidor pode demorar alguns segundos na primeira conexão…',
-    'Ainda conectando… quase lá',
-  ];
-  let loadingTimer = null;
-  function startLoadingMsgs(btn) {
-    let i = 0;
-    btn.textContent = loadingMsgs[0];
-    loadingTimer = setInterval(() => {
-      i = Math.min(i + 1, loadingMsgs.length - 1);
-      btn.textContent = loadingMsgs[i];
-    }, 4000);
-  }
-  function stopLoadingMsgs() {
-    if (loadingTimer) { clearInterval(loadingTimer); loadingTimer = null; }
-  }
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const login = document.getElementById('email').value.trim();
+      const senha = document.getElementById('senha').value;
 
-  document.getElementById('frm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const btn   = document.getElementById('btn-submit');
-    const email = document.getElementById('f-email').value.trim();
-    const senha = document.getElementById('f-senha').value;
-    const nome  = document.getElementById('f-nome').value.trim();
-    const erro  = document.getElementById('msg-erro');
-    const label = btn.textContent;
-    btn.disabled = true;
-    erro.style.display = 'none';
-    startLoadingMsgs(btn);
-    try {
-      const endpoint = isSignUp ? 'api/register.php' : 'api/login.php';
-      const payload  = isSignUp ? {nome, email, senha} : {email, senha};
-      const res  = await fetchWithTimeout(endpoint, { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) }, 70000);
-      let data;
-      try { data = await res.json(); } catch { throw new Error('Resposta inválida do servidor. Tente novamente.'); }
-      if (data.success) { location.href = 'dashboard.html'; return; }
-      erro.textContent = data.error || 'Credenciais inválidas';
-      erro.style.display = 'block';
-    } catch(err) {
-      if (err.name === 'AbortError') {
-        erro.textContent = 'O servidor não respondeu. Verifique sua conexão e tente novamente.';
-      } else {
-        erro.textContent = err.message || 'Erro de conexão. Tente novamente.';
+      errBox.classList.add('hidden');
+      btnLogin.disabled = true;
+      btnLogin.textContent = 'Entrando…';
+
+      try {
+        const res  = await fetch('./auth.php', {
+          method: 'POST',
+          cache: 'no-store',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ login, senha }),
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          errBox.textContent = data.error || 'Login ou senha incorretos.';
+          errBox.classList.remove('hidden');
+          btnLogin.disabled = false;
+          btnLogin.textContent = 'Entrar';
+        } else {
+          window.location.href = 'index.html';
+        }
+      } catch {
+        errBox.textContent = 'Erro de conexão com o servidor.';
+        errBox.classList.remove('hidden');
+        btnLogin.disabled = false;
+        btnLogin.textContent = 'Entrar';
       }
-      erro.style.display = 'block';
+    });
+  </script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js');
     }
-    stopLoadingMsgs();
-    btn.disabled = false;
-    btn.textContent = label;
-  });
-</script>
+  </script>
 </body>
 </html>

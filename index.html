@@ -1,73 +1,691 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>EPI Manager — Controle de Equipamentos de Proteção</title>
-<meta name="description" content="Sistema completo para controle de EPIs: estoque, solicitações, termos de entrega e dashboards gerenciais.">
-<link rel="stylesheet" href="css/styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solicitar EPI</title>
+  <meta name="theme-color" content="#1e4620" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Solicitar EPI" />
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <meta name="referrer" content="no-referrer" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" sizes="48x48" href="img/favicon.png?v=2" />
+  <link rel="shortcut icon" href="img/favicon.png?v=2" />
+  <link rel="apple-touch-icon" sizes="192x192" href="img/iconandroid.png" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-<header class="site-header">
-  <div class="logo"><div class="mark">E</div> EPI Manager</div>
-  <nav>
-    <a href="#features">Recursos</a>
-    <a href="dashboard.html">Demo</a>
-    <a href="login.html">Entrar</a>
-  </nav>
-  <a href="login.html" class="btn sm">Acessar sistema</a>
-</header>
+  <div class="container">
+    <div class="card">
 
-<section class="hero">
-  <h1>Controle completo de EPIs para sua operação florestal</h1>
-  <p>Gerencie estoque, solicitações, entregas e custos com indicadores gerenciais em tempo real. Exporte relatórios em PDF e PowerPoint com um clique.</p>
-  <div class="cta">
-    <a href="login.html" class="btn">Começar agora</a>
-    <a href="dashboard.html" class="btn outline">Ver demonstração</a>
-  </div>
-</section>
+      <!-- Cabeçalho verde -->
+      <div class="card-header">
+        <div class="header-icon"><img src="img/branca.png" alt="Logo" style="height:40px;width:40px;object-fit:contain;border-radius:8px" /></div>
+        <div>
+          <div class="header-title">Solicitar EPI</div>
+        </div>
+        <div class="header-actions">
+          <button class="btn-logout" onclick="logout()">Sair</button>
+        </div>
+      </div>
 
-<section id="features" class="features">
-  <div class="feature">
-    <div class="ic">📦</div>
-    <h3>Estoque inteligente</h3>
-    <p>Controle por CA, lote e validade. Alertas automáticos de mínimo e vencimento.</p>
-  </div>
-  <div class="feature">
-    <div class="ic">📝</div>
-    <h3>Solicitações ágeis</h3>
-    <p>Líderes solicitam EPIs pelo app. Acompanhe status: pendente, em separação, despachado.</p>
-  </div>
-  <div class="feature">
-    <div class="ic">📄</div>
-    <h3>Termos digitais</h3>
-    <p>Emita termos de entrega em PDF com responsável, funcionário e itens entregues.</p>
-  </div>
-  <div class="feature">
-    <div class="ic">📊</div>
-    <h3>Dashboard gerencial</h3>
-    <p>Gráficos de Pareto, custos, consumo por empresa. Exporte para PDF ou PowerPoint.</p>
-  </div>
-</section>
+      <!-- Abas -->
+      <div class="tabs">
+        <button class="tab active" id="tab-nova" onclick="showTab('nova')">
+          + Nova
+        </button>
+        <button class="tab" id="tab-minhas" onclick="showTab('minhas')">
+          🕐 Minhas
+          <span class="tab-badge hidden" id="badge-pendentes"></span>
+        </button>
+      </div>
 
-<footer style="padding:24px;text-align:center;color:var(--muted-fg);font-size:13px;border-top:1px solid var(--border)">
-  © 2026 EPI Manager — Versão estática HTML/CSS/JS
-</footer>
+      <!-- ── Aba: Nova solicitação ── -->
+      <div class="pane" id="pane-nova">
 
-<script>
-  // Redireciona automaticamente para dashboard ou login quando acessar a raiz.
-  fetch('api/session.php', { credentials: 'same-origin' })
-    .then(function(r){ return r.json(); })
-    .then(function(d){
-      if (d && d.loggedIn) {
-        location.href = 'dashboard.html';
-      } else {
-        location.href = 'login.html';
+        <div class="form-group">
+          <label for="nome-lider">Seu nome (líder)</label>
+          <input type="text" id="nome-lider" autocomplete="name" readonly />
+        </div>
+
+        <div class="form-group">
+          <label>Colaborador</label>
+          <button type="button" class="cb-trigger" id="colaborador-trigger" onclick="openCombobox('colaborador')">
+            <span class="cb-trigger-label" id="colaborador-label">Selecione o colaborador</span>
+            <svg class="cb-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+          </button>
+          <input type="hidden" id="funcionario-id" value="" />
+        </div>
+
+        <div class="form-group">
+          <label for="prioridade">Prioridade</label>
+          <select id="prioridade">
+            <option value="baixa">Baixa</option>
+            <option value="normal" selected>Normal</option>
+            <option value="alta">Alta</option>
+            <option value="urgente">Urgente</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <div class="epis-header">
+            <label>EPIs solicitados</label>
+            <button class="btn-add" onclick="addItem()">+ Adicionar</button>
+          </div>
+          <div id="itens-container"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="observacoes">Observações</label>
+          <textarea id="observacoes" placeholder="Ex: turno noturno, frente de trabalho km 12…"></textarea>
+        </div>
+
+        <button class="btn-primary" id="btn-enviar" onclick="enviarSolicitacao()">
+          <span>✈</span> Enviar solicitação
+        </button>
+      </div>
+
+      <!-- ── Aba: Minhas solicitações ── -->
+      <div class="pane hidden" id="pane-minhas">
+        <div id="historico-container">
+          <div class="empty-state">
+            <div class="empty-icon">🕐</div>
+            <p>Carregando…</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal de detalhes da solicitação -->
+      <div class="modal-overlay hidden" id="modal-detalhe">
+        <div class="modal-box">
+          <h2>Detalhes da Solicitação</h2>
+          <div id="detalhe-conteudo"></div>
+          <div class="modal-actions" id="detalhe-actions"></div>
+        </div>
+      </div>
+
+    </div><!-- /card -->
+  </div><!-- /container -->
+
+  <!-- Modal de sucesso -->
+  <div class="modal-overlay hidden" id="modal-sucesso">
+    <div class="modal-box">
+      <div class="success-circle">✓</div>
+      <h2>Solicitação enviada!</h2>
+      <p class="sub" id="modal-numero"></p>
+      <p class="desc">O almoxarifado foi notificado e vai despachar os EPIs.</p>
+      <div class="modal-actions">
+        <button class="btn-outline" onclick="closeModal('minhas')">Acompanhar</button>
+        <button class="btn-primary" onclick="closeModal('nova')">Nova</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Combobox overlay -->
+  <div class="cb-overlay hidden" id="cb-overlay">
+    <div class="cb-backdrop" id="cb-backdrop"></div>
+    <div class="cb-sheet">
+      <div class="cb-sheet-header">
+        <span class="cb-sheet-title" id="cb-sheet-title">Selecionar</span>
+        <button class="cb-close" id="cb-close" type="button">✕</button>
+      </div>
+      <div class="cb-search-wrap">
+        <input type="text" class="cb-search" id="cb-search" placeholder="Pesquisar…" autocomplete="off" />
+      </div>
+      <div class="cb-list" id="cb-list"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ── Estado ───────────────────────────────────────────────────────────
+    let currentUser  = null;
+    let csrfToken    = '';
+    let funcionarios = [];
+    let epiGroups    = [];
+    let itens        = [{ epi_id: '', quantidade: 1 }];
+    let histToken    = 0;
+
+    // URL base opcional para montar o link de assinatura quando o backend
+    // ainda não retornar um campo de URL pronto por solicitação.
+    const UNICO_ASSINATURA_BASE_URL = '';
+
+    // Escape de HTML para qualquer string vinda do servidor antes de ir pra innerHTML.
+    function esc(v) {
+      return String(v ?? '').replace(/[&<>"']/g, (c) => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+      ));
+    }
+
+    // Wrapper para fetch autenticado com cookie + CSRF e sem cache.
+    function api(url, opts = {}) {
+      const headers = Object.assign(
+        { 'Accept': 'application/json' },
+        opts.headers || {}
+      );
+      const method = (opts.method || 'GET').toUpperCase();
+      if (method !== 'GET' && method !== 'HEAD') {
+        if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+        if (!headers['Content-Type'] && opts.body) {
+          headers['Content-Type'] = 'application/json';
+        }
       }
-    })
-    .catch(function(){
-      location.href = 'login.html';
-    });
-</script>
+      return fetch(url, Object.assign({
+        cache: 'no-store',
+        credentials: 'same-origin',
+      }, opts, { headers }));
+    }
+
+    // ── Combobox customizado ─────────────────────────────────────────────
+    let cbCallback = null;
+    let cbItems    = [];
+
+    function normalizeText(v) {
+      return String(v || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    }
+
+    function openCombobox(type, idx) {
+      const titleEl  = document.getElementById('cb-sheet-title');
+      const searchEl = document.getElementById('cb-search');
+
+      if (type === 'colaborador') {
+        titleEl.textContent = 'Selecionar colaborador';
+        cbItems = funcionarios.map(c => ({
+          id:    String(c.ID),
+          label: c.NOME,
+          sub:   c.FUNCAO || '',
+        }));
+        cbCallback = (id, label, sub) => {
+          document.getElementById('funcionario-id').value = id;
+          const lbl = document.getElementById('colaborador-label');
+          lbl.textContent = label + (sub ? ` — ${sub}` : '');
+          document.getElementById('colaborador-trigger').classList.toggle('cb-trigger--selected', !!id);
+        };
+      } else if (type === 'epi') {
+        titleEl.textContent = 'Selecionar EPI';
+        cbItems = [];
+        epiGroups.forEach(group => {
+          (group.epis || []).forEach(epi => {
+            cbItems.push({
+              id:    String(epi.ID),
+              label: epi.DESCRICAO + (epi.CA ? ` (CA ${epi.CA})` : ''),
+              sub:   group.NOME_GRUPO || '',
+            });
+          });
+        });
+        cbCallback = (id, label) => {
+          itens[idx].epi_id = id;
+          const trigger = document.querySelector(`[data-epi-idx="${idx}"]`);
+          if (trigger) {
+            trigger.querySelector('.cb-trigger-label').textContent = label || 'Selecione o EPI';
+            trigger.classList.toggle('cb-trigger--selected', !!id);
+          }
+        };
+      }
+
+      searchEl.value = '';
+      renderCbList('');
+      const overlay = document.getElementById('cb-overlay');
+      overlay.classList.remove('hidden');
+      requestAnimationFrame(() => {
+        overlay.classList.add('cb-open');
+        searchEl.focus();
+      });
+    }
+
+    function renderCbList(query) {
+      const listEl = document.getElementById('cb-list');
+      const q = normalizeText(query);
+      const filtered = q
+        ? cbItems.filter(i => normalizeText(i.label).includes(q) || normalizeText(i.sub).includes(q))
+        : cbItems;
+
+      if (!filtered.length) {
+        listEl.innerHTML = '<div class="cb-empty">Nenhum resultado</div>';
+        return;
+      }
+
+      listEl.innerHTML = '';
+      filtered.forEach(item => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'cb-item';
+        btn.innerHTML =
+          `<span class="cb-item-label">${esc(item.label)}</span>` +
+          (item.sub ? `<span class="cb-item-sub">${esc(item.sub)}</span>` : '');
+        btn.addEventListener('click', () => {
+          if (cbCallback) cbCallback(item.id, item.label, item.sub);
+          closeCombobox();
+        });
+        listEl.appendChild(btn);
+      });
+    }
+
+    function closeCombobox() {
+      const overlay = document.getElementById('cb-overlay');
+      overlay.classList.remove('cb-open');
+      setTimeout(() => overlay.classList.add('hidden'), 250);
+      cbCallback = null;
+    }
+
+    // ── Init ─────────────────────────────────────────────────────────────
+    async function init() {
+      let auth;
+      try {
+        const res = await api('./check-auth.php');
+        auth = await res.json();
+      } catch {
+        auth = { authenticated: false };
+      }
+      if (!auth.authenticated) { window.location.href = 'login.html'; return; }
+      csrfToken   = auth.csrf || '';
+      currentUser = { login: auth.login, nome: (auth.nome_lider || '').trim() };
+
+      const nomeCampo = document.getElementById('nome-lider');
+      nomeCampo.value = currentUser.nome || auth.login;
+      nomeCampo.setAttribute('readonly', 'readonly');
+
+      await carregarDados();
+      renderItens();
+      carregarHistorico();
+
+      // Verifica sessão PHP periodicamente (a cada 5 min) — só desloga se o servidor
+      // responder 401 (sessão expirada). Erros de rede são ignorados (offline em campo).
+      setInterval(async () => {
+        try {
+          const r = await api('./check-auth.php');
+          if (r.status === 401) window.location.href = 'login.html';
+          else if (r.ok) {
+            const d = await r.json().catch(() => null);
+            if (d && d.csrf) csrfToken = d.csrf;
+          }
+        } catch { /* offline — não deslogar */ }
+      }, 5 * 60 * 1000);
+    }
+
+    // ── Carregar dados base ──────────────────────────────────────────────
+    async function carregarDados() {
+      const [colabRes, episRes] = await Promise.all([
+        api('./get-colaboradores.php'),
+        api('./get-epis.php'),
+      ]);
+
+      if (colabRes.status === 401 || episRes.status === 401) {
+        window.location.href = 'login.html'; return;
+      }
+      const colabs  = colabRes.ok ? await colabRes.json().catch(() => []) : [];
+      const epiData = episRes.ok ? await episRes.json().catch(() => []) : [];
+
+      funcionarios = Array.isArray(colabs)  ? colabs  : [];
+      epiGroups    = Array.isArray(epiData) ? epiData : [];
+
+      // inicializa listeners do overlay de combobox (uma única vez)
+      document.getElementById('cb-search').addEventListener('input', e => renderCbList(e.target.value));
+      document.getElementById('cb-backdrop').addEventListener('click', closeCombobox);
+      document.getElementById('cb-close').addEventListener('click', closeCombobox);
+    }
+
+    // ── Gerenciar itens de EPI ───────────────────────────────────────────
+    function addItem() {
+      itens.push({ epi_id: '', quantidade: 1 });
+      renderItens();
+    }
+
+    function removeItem(idx) {
+      itens.splice(idx, 1);
+      renderItens();
+    }
+
+    function renderItens() {
+      const container = document.getElementById('itens-container');
+      container.innerHTML = '';
+
+      itens.forEach((item, idx) => {
+        const row = document.createElement('div');
+        row.className = 'epi-row';
+
+        // Botão trigger do combobox de EPI
+        const epiLabel = (() => {
+          if (!item.epi_id) return '';
+          for (const g of epiGroups) {
+            for (const e of g.epis) {
+              if (String(e.ID) === String(item.epi_id))
+                return e.DESCRICAO + (e.CA ? ` (CA ${e.CA})` : '');
+            }
+          }
+          return '';
+        })();
+        const epiTrigger = document.createElement('button');
+        epiTrigger.type = 'button';
+        epiTrigger.className = 'cb-trigger epi-combo-input' + (item.epi_id ? ' cb-trigger--selected' : '');
+        epiTrigger.dataset.epiIdx = idx;
+        epiTrigger.innerHTML =
+          `<span class="cb-trigger-label">${esc(epiLabel || 'Selecione o EPI')}</span>` +
+          `<svg class="cb-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>`;
+        epiTrigger.addEventListener('click', () => openCombobox('epi', idx));
+
+        // Quantidade
+        const qty = document.createElement('input');
+        qty.type = 'number';
+        qty.min = 1;
+        qty.className = 'epi-qty';
+        qty.value = item.quantidade;
+        qty.addEventListener('input', e => { itens[idx].quantidade = parseInt(e.target.value) || 1; });
+
+        row.appendChild(epiTrigger);
+        row.appendChild(qty);
+
+        // Botão remover (só se tiver mais de 1 item)
+        if (itens.length > 1) {
+          const btn = document.createElement('button');
+          btn.className = 'btn-remove';
+          btn.innerHTML = '×';
+          btn.type = 'button';
+          btn.addEventListener('click', () => removeItem(idx));
+          row.appendChild(btn);
+        }
+
+        container.appendChild(row);
+      });
+    }
+
+    // ── Enviar solicitação ────────────────────────────────────────────────
+    async function enviarSolicitacao() {
+      const nomeLider     = document.getElementById('nome-lider').value.trim();
+      const colaboradorId = document.getElementById('funcionario-id').value;
+      const prioridade    = document.getElementById('prioridade').value;
+      const observacoes   = document.getElementById('observacoes').value.trim();
+
+      if (!nomeLider)     { showToast('Sessão inválida — faça login novamente', true); return; }
+      if (!colaboradorId) { showToast('Selecione um colaborador', true); return; }
+
+      const itensValidos = itens.filter(i => i.epi_id && i.quantidade > 0);
+      if (!itensValidos.length) { showToast('Adicione ao menos um EPI', true); return; }
+
+      const btn = document.getElementById('btn-enviar');
+      btn.disabled = true;
+      btn.innerHTML = '<span>⏳</span> Enviando…';
+
+      try {
+        const res  = await api('./salvar-solicitacao.php', {
+          method:  'POST',
+          body: JSON.stringify({
+            colaborador_id: Number(colaboradorId),
+            prioridade,
+            observacao: observacoes || null,
+            itens: itensValidos.map(i => ({
+              epi_id:     Number(i.epi_id),
+              quantidade: i.quantidade,
+            })),
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 401) { window.location.href = 'login.html'; return; }
+        if (!res.ok) throw new Error(data.error || 'Erro ao salvar');
+
+        // Resetar form
+        document.getElementById('funcionario-id').value = '';
+        document.getElementById('colaborador-label').textContent = 'Selecione o colaborador';
+        document.getElementById('colaborador-trigger').classList.remove('cb-trigger--selected');
+        document.getElementById('observacoes').value = '';
+        document.getElementById('prioridade').value = 'normal';
+        itens = [{ epi_id: '', quantidade: 1 }];
+        renderItens();
+
+        // Modal de sucesso
+        document.getElementById('modal-numero').textContent = `Protocolo #${data.id}`;
+        document.getElementById('modal-sucesso').classList.remove('hidden');
+
+        carregarHistorico();
+      } catch (err) {
+        showToast(err && err.message ? err.message : 'Erro ao enviar', true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>✈</span> Enviar solicitação';
+      }
+    }
+
+    // ── Histórico ─────────────────────────────────────────────────────────
+    function formatHistoricoDate(value) {
+      if (!value) return '—';
+      return new Date(value).toLocaleString('pt-BR');
+    }
+
+    function getHistoricoStatus(s) {
+      if (s.status === 3) {
+        return { label: 'Rejeitada', desc: 'Solicitação recusada', css: 's-rejeitada', isFinalizada: true };
+      }
+
+      if (s.data_entrega) {
+        return { label: 'Finalizada', desc: 'Termo assinado e solicitação concluída', css: 's-finalizada', isFinalizada: true };
+      }
+
+      if (s.termo_assinado) {
+        return { label: 'Finalizada', desc: 'Termo assinado e solicitação concluída', css: 's-finalizada', isFinalizada: true };
+      }
+
+      if (s.status === 2) {
+        return { label: 'Aguardando assinatura do colaborador', desc: 'EPIs despachados e termo aguardando assinatura', css: 's-assinatura', isFinalizada: false };
+      }
+
+      if (s.status === 1) {
+        return { label: 'Aguardando assinatura do colaborador', desc: 'Almoxarifado está separando os EPIs', css: 's-assinatura', isFinalizada: false };
+      }
+
+      return { label: 'Aguardando Aprovação do Almoxarifado', desc: 'Aguardando aprovação do almoxarifado', css: 's-assinatura', isFinalizada: false };
+    }
+
+    async function carregarHistorico() {
+      if (!currentUser) return;
+      const my = ++histToken;
+      try {
+        const res = await api('./get-historico.php');
+        if (my !== histToken) return; // resposta obsoleta
+        if (res.status === 401) { window.location.href = 'login.html'; return; }
+        if (!res.ok) { renderHistorico([]); return; }
+        const lista = await res.json().catch(() => []);
+        if (my !== histToken) return;
+        renderHistorico(Array.isArray(lista) ? lista : []);
+      } catch { /* offline — preserva UI atual */ }
+    }
+
+    function renderHistorico(lista) {
+      const el = document.getElementById('historico-container');
+
+      if (!lista.length) {
+        el.innerHTML = `<div class="empty-state">
+          <div class="empty-icon">🕐</div>
+          <p>Você ainda não tem solicitações nesta equipe.</p>
+        </div>`;
+        // Zerar badge
+        const badge = document.getElementById('badge-pendentes');
+        badge.classList.add('hidden');
+        return;
+      }
+
+      // Atualizar badge de solicitações que ainda dependem de assinatura
+      const ativas = lista.filter(s => {
+        const info = getHistoricoStatus(s);
+        return !info.isFinalizada && s.status !== 3;
+      }).length;
+      const badge = document.getElementById('badge-pendentes');
+      if (ativas > 0) {
+        badge.textContent = ativas > 99 ? '99+' : ativas;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+
+        el.innerHTML = lista.map((s, idx) => {
+          const info = getHistoricoStatus(s);
+          const itensHtml = (s.itens || []).map(i =>
+            `<li><span>${esc(i.epi_descricao || 'EPI')}</span><span>×${Number(i.quantidade) || 0}</span></li>`
+          ).join('');
+          // Torna o card clicável
+          return `<div class="historico-item ${esc(info.css)}" style="cursor:pointer" onclick="mostrarDetalheSolicitacao(${idx})">
+            <div class="hist-header">
+              <div>
+                <div class="hist-status">${esc(info.label)} <span class="hist-num">#${esc(s.id)}</span></div>
+                <div class="hist-desc">${esc(info.desc)}</div>
+              </div>
+              <span class="badge p-${esc(s.prioridade)}">${esc(s.prioridade)}</span>
+            </div>
+            <div class="hist-body">
+              <div><span style="opacity:.65">Para:</span> <strong>${esc(s.colaborador_nome || '—')}</strong></div>
+              <ul class="hist-itens">${itensHtml}</ul>
+              <div class="hist-date">${esc(formatHistoricoDate(s.data))}</div>
+            </div>
+          </div>`;
+        }).join('');
+
+        // Salva lista em window para acesso no modal
+        window.__historicoLista = lista;
+    }
+
+      // Função para mostrar modal de detalhe
+      function mostrarDetalheSolicitacao(idx) {
+        const lista = window.__historicoLista || [];
+        const s = lista[idx];
+        if (!s) return;
+        const info = getHistoricoStatus(s);
+        const itensHtml = (s.itens || []).map(i =>
+          `<div class="detail-item-row">
+            <div class="detail-item-name">${esc(i.epi_descricao || 'EPI')}</div>
+            <div class="detail-item-qty">×${Number(i.quantidade) || 0}</div>
+          </div>`
+        ).join('');
+        const detalheData = s.data_entrega || s.data;
+        const dataPrefix = s.status === 3 ? 'Registrada em ' : (s.data_entrega ? 'Finalizada em ' : 'Solicitada em ');
+        const conteudo = `
+          <div class="detail-topline">
+            <div class="detail-status-badge ${esc(info.css)}">${esc(info.label)}</div>
+            <div class="detail-number">#${esc(s.id)}</div>
+          </div>
+          <div class="detail-desc">${esc(info.desc)}</div>
+          <div class="detail-target">Para <strong>${esc(s.colaborador_nome || '—')}</strong></div>
+          <div class="detail-meta">
+            <span class="detail-chip">Prioridade: ${esc(s.prioridade)}</span>
+            <span class="detail-chip">Equipe: ${esc(s.equipe || '—')}</span>
+          </div>
+          <div class="detail-section">
+            <div class="detail-section-title">EPIs</div>
+            <div class="detail-items">${itensHtml}</div>
+          </div>
+          ${s.observacao ? `<div class="detail-section"><div class="detail-section-title">Observações</div><div class="detail-note">${esc(s.observacao)}</div></div>` : ''}
+          <div class="detail-date">${esc(dataPrefix + formatHistoricoDate(detalheData))}</div>
+        `;
+        document.getElementById('detalhe-conteudo').innerHTML = conteudo;
+
+        // Botões
+        const actions = document.getElementById('detalhe-actions');
+        actions.innerHTML = '';
+        // Mostra botão "Assinar" quando a solicitação ainda não foi assinada.
+          if (s.assinatura_url && !s.termo_assinado) {
+            const btn = document.createElement('button');
+            btn.className = 'btn-primary';
+            btn.textContent = 'Assinar';
+            btn.onclick = function() {
+              abrirAssinaturaTermo(s);
+            };
+            actions.appendChild(btn);
+          }
+        const btnFechar = document.createElement('button');
+        btnFechar.className = 'btn-outline';
+        btnFechar.textContent = 'Fechar';
+        btnFechar.onclick = function() {
+          document.getElementById('modal-detalhe').classList.add('hidden');
+        };
+        actions.appendChild(btnFechar);
+
+        document.getElementById('modal-detalhe').classList.remove('hidden');
+      }
+
+    // ── Navegação entre abas ──────────────────────────────────────────────
+    function showTab(aba) {
+      document.getElementById('pane-nova').classList.toggle('hidden', aba !== 'nova');
+      document.getElementById('pane-minhas').classList.toggle('hidden', aba !== 'minhas');
+      document.getElementById('tab-nova').classList.toggle('active', aba === 'nova');
+      document.getElementById('tab-minhas').classList.toggle('active', aba === 'minhas');
+      if (aba === 'minhas') carregarHistorico();
+    }
+
+    // ── Modal ─────────────────────────────────────────────────────────────
+    function closeModal(irPara) {
+      document.getElementById('modal-sucesso').classList.add('hidden');
+      if (irPara) showTab(irPara);
+    }
+
+    // ── Toast ─────────────────────────────────────────────────────────────
+    let toastTimer = null;
+    function showToast(msg, isError = false) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'toast' + (isError ? ' error' : '');
+      requestAnimationFrame(() => t.classList.add('show'));
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    function getAssinaturaUrl(solicitacao) {
+      if (solicitacao?.assinatura_url) return solicitacao.assinatura_url;
+
+      if (!UNICO_ASSINATURA_BASE_URL || !solicitacao?.id) return '';
+
+      const url = new URL(UNICO_ASSINATURA_BASE_URL, window.location.origin);
+      url.searchParams.set('solicitacao_id', String(solicitacao.id));
+      if (currentUser?.login) url.searchParams.set('lider', currentUser.login);
+      return url.toString();
+    }
+
+    function abrirAssinaturaTermo(solicitacao) {
+      const url = getAssinaturaUrl(solicitacao);
+      if (!url) {
+        showToast('Link da Unico indisponível para esta solicitação.', true);
+        return;
+      }
+
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+
+    // ── Logout ────────────────────────────────────────────────────────────
+    async function logout() {
+      try {
+        await api('./logout.php', { method: 'POST' });
+      } catch { /* ignora */ }
+      window.location.href = 'login.html';
+    }
+
+    // ── Iniciar ───────────────────────────────────────────────────────────
+    init();
+  </script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').then((reg) => {
+        if (!reg) return;
+        reg.addEventListener('updatefound', () => {
+          const sw = reg.installing;
+          if (!sw) return;
+          sw.addEventListener('statechange', () => {
+            if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+              // Nova versão pronta. Ativa só no próximo reload do usuário.
+              sw.postMessage('SKIP_WAITING');
+            }
+          });
+        });
+      });
+      let _reloading = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (_reloading) return;
+        _reloading = true;
+        window.location.reload();
+      });
+    }
+  </script>
 </body>
 </html>
